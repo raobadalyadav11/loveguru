@@ -1,0 +1,15 @@
+database:
+  host: localhost
+  port: 5432
+  user: postgres
+  password: password
+  dbname: loveguru
+  sslmode: disable
+
+jwt:
+  secret: your-super-secret-jwt-key-change-this-in-production
+  access_ttl: 15
+  refresh_ttl: 10080
+
+server:
+  port: "50051"

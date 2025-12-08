@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package loveguru.advisor;
+
+import "proto/common.proto";
+
+option go_package = "loveguru/proto/advisor";
+
+service AdvisorService {
+  rpc ListAdvisors (ListAdvisorsRequest) returns (ListAdvisorsResponse);
+  rpc GetAdvisor (GetAdvisorRequest) returns (GetAdvisorResponse);
+  rpc ApplyAsAdvisor (ApplyAsAdvisorRequest) returns (ApplyAsAdvisorResponse);
+  rpc UpdateProfile (UpdateProfileRequest) returns (UpdateProfileResponse);
+}
+
+message ListAdvisorsRequest {
+  double rating_min = 1;
+  repeated string languages = 2;
+  repeated string specializations = 3;
+  string sort = 4; // top_rated, price, experience
+  int32 limit = 5;
+  int32 offset = 6;
+}
+
+message ListAdvisorsResponse {
+  repeated AdvisorWithRating advisors = 1;
+}
+
+message AdvisorWithRating {
+  common.Advisor advisor = 1;
+  common.User user = 2;
+  double average_rating = 3;
+}
+
+message GetAdvisorRequest {
+  string id = 1;
+}
+
+message GetAdvisorResponse {
+  AdvisorWithRating advisor = 1;
+}
+
+message ApplyAsAdvisorRequest {
+  string bio = 1;
+  int32 experience_years = 2;
+  repeated string languages = 3;
+  repeated string specializations = 4;
+  double hourly_rate = 5;
+}
+
+message ApplyAsAdvisorResponse {
+  common.Advisor advisor = 1;
+}
+
+message UpdateProfileRequest {
+  string bio = 1;
+  int32 experience_years = 2;
+  repeated string languages = 3;
+  repeated string specializations = 4;
+  double hourly_rate = 5;
+  common.AdvisorStatus status = 6;
+}
+
+message UpdateProfileResponse {
+  common.Advisor advisor = 1;
+}

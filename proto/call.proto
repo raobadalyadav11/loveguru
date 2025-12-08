@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package loveguru.call;
+
+import "proto/common.proto";
+
+option go_package = "loveguru/proto/call";
+
+service CallService {
+  rpc CreateSession (CreateSessionRequest) returns (CreateSessionResponse);
+  rpc EndCall (EndCallRequest) returns (EndCallResponse);
+  rpc GetCall (GetCallRequest) returns (GetCallResponse);
+}
+
+message CreateSessionRequest {
+  string advisor_id = 1;
+}
+
+message CreateSessionResponse {
+  common.Session session = 1;
+  string call_token = 2; // from VoIP provider
+  string room_id = 3;
+}
+
+message EndCallRequest {
+  string session_id = 1;
+}
+
+message EndCallResponse {
+  bool success = 1;
+}
+
+message GetCallRequest {
+  string session_id = 1;
+}
+
+message GetCallResponse {
+  common.Session session = 1;
+  // additional call details if needed
+}

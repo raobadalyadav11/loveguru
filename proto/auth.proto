@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package loveguru.auth;
+
+import "proto/common.proto";
+
+option go_package = "loveguru/proto/auth";
+
+service AuthService {
+  rpc Register (RegisterRequest) returns (RegisterResponse);
+  rpc Login (LoginRequest) returns (LoginResponse);
+  rpc Refresh (RefreshRequest) returns (RefreshResponse);
+  rpc Logout (LogoutRequest) returns (LogoutResponse);
+}
+
+message RegisterRequest {
+  string email = 1;
+  string phone = 2;
+  string password = 3;
+  string display_name = 4;
+  common.Role role = 5;
+}
+
+message RegisterResponse {
+  common.User user = 1;
+  common.Tokens tokens = 2;
+}
+
+message LoginRequest {
+  string email = 1;
+  string phone = 2;
+  string password = 3;
+}
+
+message LoginResponse {
+  common.Tokens tokens = 1;
+}
+
+message RefreshRequest {
+  string refresh_token = 1;
+}
+
+message RefreshResponse {
+  common.Tokens tokens = 1;
+}
+
+message LogoutRequest {
+  // empty
+}
+
+message LogoutResponse {
+  bool success = 1;
+}

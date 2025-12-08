@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package loveguru.chat;
+
+import "proto/common.proto";
+
+option go_package = "loveguru/proto/chat";
+
+service ChatService {
+  rpc CreateSession (CreateSessionRequest) returns (CreateSessionResponse);
+  rpc GetMessages (GetMessagesRequest) returns (GetMessagesResponse);
+  rpc ChatStream (stream ChatMessageRequest) returns (stream ChatMessageResponse);
+}
+
+message CreateSessionRequest {
+  string advisor_id = 1; // for user-advisor, or empty for AI
+  common.SessionType type = 2; // CHAT or AI_CHAT
+}
+
+message CreateSessionResponse {
+  common.Session session = 1;
+}
+
+message GetMessagesRequest {
+  string session_id = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message GetMessagesResponse {
+  repeated common.ChatMessage messages = 1;
+}
+
+message ChatMessage {
+  string session_id = 1;
+  string content = 2;
+}
+
+message ChatMessageRequest {
+  string session_id = 1;
+  string content = 2;
+}
+
+message ChatMessageResponse {
+  ChatMessage message = 1;
+}

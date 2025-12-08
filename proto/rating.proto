@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package loveguru.rating;
+
+import "proto/common.proto";
+
+option go_package = "loveguru/proto/rating";
+
+service RatingService {
+  rpc CreateRating (CreateRatingRequest) returns (CreateRatingResponse);
+  rpc GetAdvisorRatings (GetAdvisorRatingsRequest) returns (GetAdvisorRatingsResponse);
+}
+
+message CreateRatingRequest {
+  string session_id = 1;
+  int32 rating = 2;
+  string review_text = 3;
+}
+
+message CreateRatingResponse {
+  common.Rating rating = 1;
+}
+
+message GetAdvisorRatingsRequest {
+  string advisor_id = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message GetAdvisorRatingsResponse {
+  repeated common.Rating ratings = 1;
+}

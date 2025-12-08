@@ -1,0 +1,99 @@
+syntax = "proto3";
+
+package loveguru.common;
+
+option go_package = "loveguru/proto/common";
+
+enum Role {
+  USER = 0;
+  ADVISOR = 1;
+  ADMIN = 2;
+}
+
+enum Gender {
+  MALE = 0;
+  FEMALE = 1;
+  OTHER = 2;
+}
+
+enum SessionType {
+  CHAT = 0;
+  CALL = 1;
+  AI_CHAT = 2;
+}
+
+enum SessionStatus {
+  ONGOING = 0;
+  ENDED = 1;
+  CANCELLED = 2;
+}
+
+enum AdvisorStatus {
+  ONLINE = 0;
+  OFFLINE = 1;
+  BUSY = 2;
+  PENDING = 3;
+}
+
+message User {
+  string id = 1;
+  string email = 2;
+  string phone = 3;
+  string password_hash = 4;
+  string display_name = 5;
+  Role role = 6;
+  Gender gender = 7;
+  string dob = 8;
+  string created_at = 9;
+  string updated_at = 10;
+  bool is_active = 11;
+}
+
+message Advisor {
+  string id = 1;
+  string user_id = 2;
+  string bio = 3;
+  int32 experience_years = 4;
+  repeated string languages = 5;
+  repeated string specializations = 6;
+  bool is_verified = 7;
+  double hourly_rate = 8;
+  AdvisorStatus status = 9;
+  string created_at = 10;
+  string updated_at = 11;
+}
+
+message Session {
+  string id = 1;
+  string user_id = 2;
+  string advisor_id = 3;
+  SessionType type = 4;
+  string started_at = 5;
+  string ended_at = 6;
+  SessionStatus status = 7;
+}
+
+message ChatMessage {
+  string id = 1;
+  string session_id = 2;
+  string sender_type = 3; // USER, ADVISOR, AI
+  string sender_id = 4;
+  string content = 5;
+  string created_at = 6;
+  bool is_read = 7;
+}
+
+message Rating {
+  string id = 1;
+  string session_id = 2;
+  string user_id = 3;
+  string advisor_id = 4;
+  int32 rating = 5;
+  string review_text = 6;
+  string created_at = 7;
+}
+
+message Tokens {
+  string access_token = 1;
+  string refresh_token = 2;
+}

@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package loveguru.admin;
+
+import "proto/common.proto";
+
+option go_package = "loveguru/proto/admin";
+
+service AdminService {
+  rpc GetPendingAdvisors (GetPendingAdvisorsRequest) returns (GetPendingAdvisorsResponse);
+  rpc ApproveAdvisor (ApproveAdvisorRequest) returns (ApproveAdvisorResponse);
+  rpc GetFlags (GetFlagsRequest) returns (GetFlagsResponse);
+  rpc BlockUser (BlockUserRequest) returns (BlockUserResponse);
+}
+
+message AdminFlag {
+  string id = 1;
+  string reported_by = 2;
+  string reported_user_id = 3;
+  string reported_advisor_id = 4;
+  string reason = 5;
+  string session_id = 6;
+  string created_at = 7;
+  string status = 8;
+}
+
+message GetPendingAdvisorsRequest {
+  int32 limit = 1;
+  int32 offset = 2;
+}
+
+message GetPendingAdvisorsResponse {
+  repeated common.Advisor advisors = 1;
+}
+
+message ApproveAdvisorRequest {
+  string advisor_id = 1;
+}
+
+message ApproveAdvisorResponse {
+  bool success = 1;
+}
+
+message GetFlagsRequest {
+  int32 limit = 1;
+  int32 offset = 2;
+}
+
+message GetFlagsResponse {
+  repeated AdminFlag flags = 1;
+}
+
+message BlockUserRequest {
+  string user_id = 1;
+}
+
+message BlockUserResponse {
+  bool success = 1;
+}
