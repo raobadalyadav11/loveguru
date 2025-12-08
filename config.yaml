@@ -7,7 +7,7 @@ database:
   sslmode: disable
 
 jwt:
-  secret: your-super-secret-jwt-key-change-this-in-production
+  secret: e4f9b6c8a1d2f0c3b7e9d4f8c6a2b1e0f4c3a9d8b7e6f1c2d3a4b5c6d7e8f9a0
   access_ttl: 15
   refresh_ttl: 10080
 

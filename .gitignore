@@ -44,6 +44,9 @@ dist/
 *.swp
 *.bak
 
+# Docker
+postgres_data/
+
 # Protocol buffer generated files (optional, if you want to ignore them)
 # proto/*/*.pb.go
 # proto/*/*_grpc.pb.go
