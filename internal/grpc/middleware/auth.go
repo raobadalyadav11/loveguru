@@ -26,8 +26,27 @@ type UserInfo struct {
 	Role string
 }
 
+// publicMethods is a set of gRPC methods that don't require authentication.
+// Using a map provides O(1) lookup time, which is more efficient than iterating a slice.
+var publicMethods = map[string]struct{}{
+	"/loveguru.auth.AuthService/Register": {},
+	"/loveguru.auth.AuthService/Login":    {},
+	"/loveguru.auth.AuthService/Refresh":  {},
+}
+
+func isPublicMethod(method string) bool {
+	_, ok := publicMethods[method]
+	return ok
+}
+
 func UnaryAuthInterceptor(jwtSecret string) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		// Allow public methods that don't require authentication
+		if isPublicMethod(info.FullMethod) {
+			return handler(ctx, req)
+		}
+
+		// For protected methods, require authentication
 		user, err := authenticate(ctx, jwtSecret)
 		if err != nil {
 			return nil, err
@@ -39,6 +58,11 @@ func UnaryAuthInterceptor(jwtSecret string) grpc.UnaryServerInterceptor {
 
 func StreamAuthInterceptor(jwtSecret string) grpc.StreamServerInterceptor {
 	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		// Allow public methods that don't require authentication
+		if isPublicMethod(info.FullMethod) {
+			return handler(srv, stream)
+		}
+
 		ctx := stream.Context()
 		user, err := authenticate(ctx, jwtSecret)
 		if err != nil {
@@ -65,14 +89,27 @@ func authenticate(ctx context.Context, jwtSecret string) (*UserInfo, error) {
 		return nil, status.Error(codes.Unauthenticated, "missing metadata")
 	}
 
+	// Check for empty metadata keys
+	for key := range md {
+		if key == "" {
+			return nil, status.Error(codes.Unauthenticated, "invalid metadata key")
+		}
+	}
+
 	authHeader := md.Get("authorization")
 	if len(authHeader) == 0 {
 		return nil, status.Error(codes.Unauthenticated, "missing authorization header")
 	}
 
-	tokenString := strings.TrimPrefix(authHeader[0], "Bearer ")
-	if tokenString == authHeader[0] {
-		return nil, status.Error(codes.Unauthenticated, "invalid authorization header")
+	tokenString := authHeader[0]
+	if strings.HasPrefix(tokenString, "Bearer ") {
+		tokenString = strings.TrimPrefix(tokenString, "Bearer ")
+	} else {
+		return nil, status.Error(codes.Unauthenticated, "authorization header must start with 'Bearer '")
+	}
+
+	if tokenString == "" {
+		return nil, status.Error(codes.Unauthenticated, "empty token")
 	}
 
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
