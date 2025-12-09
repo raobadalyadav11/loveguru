@@ -15,11 +15,14 @@ service AdvisorService {
 
 message ListAdvisorsRequest {
   double rating_min = 1;
-  repeated string languages = 2;
-  repeated string specializations = 3;
-  string sort = 4; // top_rated, price, experience
-  int32 limit = 5;
-  int32 offset = 6;
+  int32 experience_min = 2;
+  repeated string languages = 3;
+  repeated string specializations = 4;
+  common.AdvisorStatus status = 5;
+  string search = 6;
+  string sort = 7; // top_rated, price, experience
+  int32 limit = 8;
+  int32 offset = 9;
 }
 
 message ListAdvisorsResponse {

@@ -12,6 +12,7 @@ service AIService {
 message ChatRequest {
   string message = 1;
   string context = 2; // relationship type, previous session id
+  string session_id = 3; // optional session ID for chat context
 }
 
 message ChatResponse {

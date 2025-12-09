@@ -193,21 +193,6 @@ func (s *Service) mapAdvisor(a db.Advisor) *common.Advisor {
 	}
 }
 
-func (s *Service) mapUser(u db.User) *common.User {
-	return &common.User{
-		Id:          u.ID.String(),
-		Email:       u.Email.String,
-		Phone:       u.Phone.String,
-		DisplayName: u.DisplayName,
-		Role:        common.Role(common.Role_value[u.Role]),
-		Gender:      common.Gender(common.Gender_value[u.Gender.String]),
-		Dob:         u.Dob.Time.Format("2006-01-02"),
-		CreatedAt:   u.CreatedAt.Time.Format("2006-01-02T15:04:05Z"),
-		UpdatedAt:   u.UpdatedAt.Time.Format("2006-01-02T15:04:05Z"),
-		IsActive:    u.IsActive.Bool,
-	}
-}
-
 func parseFloat(s string) float64 {
 	var f float64
 	fmt.Sscanf(s, "%f", &f)

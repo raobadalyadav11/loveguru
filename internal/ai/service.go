@@ -13,16 +13,14 @@ import (
 )
 
 type Service struct {
-	repo    *db.Queries
-	apiKey  string
-	baseURL string
+	repo   *db.Queries
+	openai *OpenAIClient
 }
 
 func NewService(repo *db.Queries, apiKey, baseURL string) *Service {
 	return &Service{
-		repo:    repo,
-		apiKey:  apiKey,
-		baseURL: baseURL,
+		repo:   repo,
+		openai: NewOpenAIClient(apiKey, baseURL),
 	}
 }
 
@@ -37,8 +35,15 @@ func (s *Service) Chat(ctx context.Context, req *ai.ChatRequest) (*ai.ChatRespon
 		return nil, err
 	}
 
-	// Call external AI API
-	response, err := s.callAI(req.Message + " " + req.Context)
+	// Use context parameter for session context
+	var contextMessages []string
+	if req.Context != "" {
+		// Parse context for session ID or use context directly as previous messages
+		contextMessages = []string{req.Context}
+	}
+
+	// Call OpenAI API
+	response, err := s.openai.Chat(ctx, req.Message, contextMessages)
 	if err != nil {
 		return nil, err
 	}
