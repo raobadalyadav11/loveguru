@@ -31,6 +31,97 @@ func (q *Queries) BlockUser(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const countCompletedSessions = `-- name: CountCompletedSessions :one
+SELECT COUNT(*) FROM sessions WHERE user_id = $1 AND status = 'ENDED'
+`
+
+func (q *Queries) CountCompletedSessions(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countCompletedSessions, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countPendingReports = `-- name: CountPendingReports :one
+SELECT COUNT(*) FROM admin_flags WHERE status = 'PENDING'
+`
+
+func (q *Queries) CountPendingReports(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countPendingReports)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countResolvedReports = `-- name: CountResolvedReports :one
+SELECT COUNT(*) FROM admin_flags WHERE status IN ('RESOLVED', 'DISMISSED')
+`
+
+func (q *Queries) CountResolvedReports(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countResolvedReports)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countTotalReports = `-- name: CountTotalReports :one
+SELECT COUNT(*) FROM admin_flags
+`
+
+func (q *Queries) CountTotalReports(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countTotalReports)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countUserSessions = `-- name: CountUserSessions :one
+SELECT COUNT(*) FROM sessions WHERE user_id = $1
+`
+
+func (q *Queries) CountUserSessions(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countUserSessions, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const createAdminFlag = `-- name: CreateAdminFlag :one
+INSERT INTO admin_flags (reported_by, reported_user_id, reported_advisor_id, session_id, reason)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, reported_by, reported_user_id, reported_advisor_id, reason, session_id, created_at, status
+`
+
+type CreateAdminFlagParams struct {
+	ReportedBy        uuid.UUID     `json:"reported_by"`
+	ReportedUserID    uuid.NullUUID `json:"reported_user_id"`
+	ReportedAdvisorID uuid.NullUUID `json:"reported_advisor_id"`
+	SessionID         uuid.NullUUID `json:"session_id"`
+	Reason            string        `json:"reason"`
+}
+
+func (q *Queries) CreateAdminFlag(ctx context.Context, arg CreateAdminFlagParams) (AdminFlag, error) {
+	row := q.db.QueryRowContext(ctx, createAdminFlag,
+		arg.ReportedBy,
+		arg.ReportedUserID,
+		arg.ReportedAdvisorID,
+		arg.SessionID,
+		arg.Reason,
+	)
+	var i AdminFlag
+	err := row.Scan(
+		&i.ID,
+		&i.ReportedBy,
+		&i.ReportedUserID,
+		&i.ReportedAdvisorID,
+		&i.Reason,
+		&i.SessionID,
+		&i.CreatedAt,
+		&i.Status,
+	)
+	return i, err
+}
+
 const createAdvisor = `-- name: CreateAdvisor :one
 INSERT INTO advisors (user_id, bio, experience_years, languages, specializations, hourly_rate)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -98,6 +189,40 @@ func (q *Queries) CreateCallSession(ctx context.Context, arg CreateCallSessionPa
 	return i, err
 }
 
+const createFAQ = `-- name: CreateFAQ :one
+INSERT INTO faqs (question, answer, category) VALUES ($1, $2, $3) RETURNING id
+`
+
+type CreateFAQParams struct {
+	Question string `json:"question"`
+	Answer   string `json:"answer"`
+	Category string `json:"category"`
+}
+
+func (q *Queries) CreateFAQ(ctx context.Context, arg CreateFAQParams) (uuid.UUID, error) {
+	row := q.db.QueryRowContext(ctx, createFAQ, arg.Question, arg.Answer, arg.Category)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createFeedbackPrompt = `-- name: CreateFeedbackPrompt :one
+INSERT INTO call_feedback_prompts (session_id, user_id, advisor_id) VALUES ($1, $2, $3) RETURNING id
+`
+
+type CreateFeedbackPromptParams struct {
+	SessionID uuid.UUID `json:"session_id"`
+	UserID    uuid.UUID `json:"user_id"`
+	AdvisorID uuid.UUID `json:"advisor_id"`
+}
+
+func (q *Queries) CreateFeedbackPrompt(ctx context.Context, arg CreateFeedbackPromptParams) (uuid.UUID, error) {
+	row := q.db.QueryRowContext(ctx, createFeedbackPrompt, arg.SessionID, arg.UserID, arg.AdvisorID)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const createRating = `-- name: CreateRating :one
 INSERT INTO ratings (session_id, user_id, advisor_id, rating, review_text)
 VALUES ($1, $2, $3, $4, $5)
@@ -160,10 +285,27 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 	return i, err
 }
 
+const createSpecialization = `-- name: CreateSpecialization :one
+INSERT INTO specializations (name, description, category) VALUES ($1, $2, $3) RETURNING id
+`
+
+type CreateSpecializationParams struct {
+	Name        string         `json:"name"`
+	Description sql.NullString `json:"description"`
+	Category    string         `json:"category"`
+}
+
+func (q *Queries) CreateSpecialization(ctx context.Context, arg CreateSpecializationParams) (uuid.UUID, error) {
+	row := q.db.QueryRowContext(ctx, createSpecialization, arg.Name, arg.Description, arg.Category)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, phone, password_hash, display_name, role)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, email, phone, password_hash, display_name, role, gender, dob, created_at, updated_at, is_active
+RETURNING id, email, phone, password_hash, display_name, role, gender, dob, created_at, updated_at, is_active, fcm_token, apns_token, device_type
 `
 
 type CreateUserParams struct {
@@ -195,8 +337,29 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.IsActive,
+		&i.FcmToken,
+		&i.ApnsToken,
+		&i.DeviceType,
 	)
 	return i, err
+}
+
+const deleteFAQ = `-- name: DeleteFAQ :exec
+DELETE FROM faqs WHERE id = $1
+`
+
+func (q *Queries) DeleteFAQ(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteFAQ, id)
+	return err
+}
+
+const deleteSpecialization = `-- name: DeleteSpecialization :exec
+DELETE FROM specializations WHERE id = $1
+`
+
+func (q *Queries) DeleteSpecialization(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteSpecialization, id)
+	return err
 }
 
 const endCall = `-- name: EndCall :exec
@@ -208,8 +371,82 @@ func (q *Queries) EndCall(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const getActiveSessions = `-- name: GetActiveSessions :many
+SELECT id, user_id, advisor_id, type, started_at, ended_at, status FROM sessions WHERE user_id = $1 AND status != 'ENDED' ORDER BY started_at DESC
+`
+
+func (q *Queries) GetActiveSessions(ctx context.Context, userID uuid.UUID) ([]Session, error) {
+	rows, err := q.db.QueryContext(ctx, getActiveSessions, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Session
+	for rows.Next() {
+		var i Session
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.AdvisorID,
+			&i.Type,
+			&i.StartedAt,
+			&i.EndedAt,
+			&i.Status,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getActiveSpecializationsByCategory = `-- name: GetActiveSpecializationsByCategory :many
+SELECT id, name, description, category FROM specializations WHERE category = $1 AND is_active = true ORDER BY name
+`
+
+type GetActiveSpecializationsByCategoryRow struct {
+	ID          uuid.UUID      `json:"id"`
+	Name        string         `json:"name"`
+	Description sql.NullString `json:"description"`
+	Category    string         `json:"category"`
+}
+
+func (q *Queries) GetActiveSpecializationsByCategory(ctx context.Context, category string) ([]GetActiveSpecializationsByCategoryRow, error) {
+	rows, err := q.db.QueryContext(ctx, getActiveSpecializationsByCategory, category)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetActiveSpecializationsByCategoryRow
+	for rows.Next() {
+		var i GetActiveSpecializationsByCategoryRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.Category,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getAdvisorByID = `-- name: GetAdvisorByID :one
-SELECT a.id, a.user_id, a.bio, a.experience_years, a.languages, a.specializations, a.is_verified, a.hourly_rate, a.status, a.created_at, a.updated_at, u.id, u.email, u.phone, u.password_hash, u.display_name, u.role, u.gender, u.dob, u.created_at, u.updated_at, u.is_active FROM advisors a JOIN users u ON a.user_id = u.id WHERE a.id = $1
+SELECT a.id, a.user_id, a.bio, a.experience_years, a.languages, a.specializations, a.is_verified, a.hourly_rate, a.status, a.created_at, a.updated_at, u.id, u.email, u.phone, u.password_hash, u.display_name, u.role, u.gender, u.dob, u.created_at, u.updated_at, u.is_active, u.fcm_token, u.apns_token, u.device_type FROM advisors a JOIN users u ON a.user_id = u.id WHERE a.id = $1
 `
 
 type GetAdvisorByIDRow struct {
@@ -235,6 +472,9 @@ type GetAdvisorByIDRow struct {
 	CreatedAt_2     sql.NullTime   `json:"created_at_2"`
 	UpdatedAt_2     sql.NullTime   `json:"updated_at_2"`
 	IsActive        sql.NullBool   `json:"is_active"`
+	FcmToken        sql.NullString `json:"fcm_token"`
+	ApnsToken       sql.NullString `json:"apns_token"`
+	DeviceType      sql.NullString `json:"device_type"`
 }
 
 func (q *Queries) GetAdvisorByID(ctx context.Context, id uuid.UUID) (GetAdvisorByIDRow, error) {
@@ -263,6 +503,9 @@ func (q *Queries) GetAdvisorByID(ctx context.Context, id uuid.UUID) (GetAdvisorB
 		&i.CreatedAt_2,
 		&i.UpdatedAt_2,
 		&i.IsActive,
+		&i.FcmToken,
+		&i.ApnsToken,
+		&i.DeviceType,
 	)
 	return i, err
 }
@@ -329,6 +572,254 @@ func (q *Queries) GetAdvisorRatings(ctx context.Context, arg GetAdvisorRatingsPa
 		return nil, err
 	}
 	return items, nil
+}
+
+const getAdvisorRatingsWithReviewer = `-- name: GetAdvisorRatingsWithReviewer :many
+SELECT r.id, r.session_id, r.user_id, r.advisor_id, r.rating, r.review_text, r.created_at, u.display_name as reviewer_name
+FROM ratings r
+JOIN users u ON r.user_id = u.id
+WHERE r.advisor_id = $1
+ORDER BY r.created_at DESC
+`
+
+type GetAdvisorRatingsWithReviewerRow struct {
+	ID           uuid.UUID      `json:"id"`
+	SessionID    uuid.UUID      `json:"session_id"`
+	UserID       uuid.UUID      `json:"user_id"`
+	AdvisorID    uuid.UUID      `json:"advisor_id"`
+	Rating       int32          `json:"rating"`
+	ReviewText   sql.NullString `json:"review_text"`
+	CreatedAt    sql.NullTime   `json:"created_at"`
+	ReviewerName string         `json:"reviewer_name"`
+}
+
+func (q *Queries) GetAdvisorRatingsWithReviewer(ctx context.Context, advisorID uuid.UUID) ([]GetAdvisorRatingsWithReviewerRow, error) {
+	rows, err := q.db.QueryContext(ctx, getAdvisorRatingsWithReviewer, advisorID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAdvisorRatingsWithReviewerRow
+	for rows.Next() {
+		var i GetAdvisorRatingsWithReviewerRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.UserID,
+			&i.AdvisorID,
+			&i.Rating,
+			&i.ReviewText,
+			&i.CreatedAt,
+			&i.ReviewerName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getAllFAQs = `-- name: GetAllFAQs :many
+
+SELECT id, question, answer, category, is_active FROM faqs ORDER BY category, question
+`
+
+type GetAllFAQsRow struct {
+	ID       uuid.UUID    `json:"id"`
+	Question string       `json:"question"`
+	Answer   string       `json:"answer"`
+	Category string       `json:"category"`
+	IsActive sql.NullBool `json:"is_active"`
+}
+
+// FAQ Management
+func (q *Queries) GetAllFAQs(ctx context.Context) ([]GetAllFAQsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getAllFAQs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllFAQsRow
+	for rows.Next() {
+		var i GetAllFAQsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Question,
+			&i.Answer,
+			&i.Category,
+			&i.IsActive,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getAllSpecializations = `-- name: GetAllSpecializations :many
+
+SELECT id, name, description, category, is_active FROM specializations ORDER BY category, name
+`
+
+type GetAllSpecializationsRow struct {
+	ID          uuid.UUID      `json:"id"`
+	Name        string         `json:"name"`
+	Description sql.NullString `json:"description"`
+	Category    string         `json:"category"`
+	IsActive    sql.NullBool   `json:"is_active"`
+}
+
+// Specializations Management
+func (q *Queries) GetAllSpecializations(ctx context.Context) ([]GetAllSpecializationsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getAllSpecializations)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllSpecializationsRow
+	for rows.Next() {
+		var i GetAllSpecializationsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.Category,
+			&i.IsActive,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getAverageSessionDuration = `-- name: GetAverageSessionDuration :one
+SELECT AVG(EXTRACT(EPOCH FROM (ended_at - started_at))) FROM sessions WHERE user_id = $1 AND status = 'ENDED'
+`
+
+func (q *Queries) GetAverageSessionDuration(ctx context.Context, userID uuid.UUID) (float64, error) {
+	row := q.db.QueryRowContext(ctx, getAverageSessionDuration, userID)
+	var avg float64
+	err := row.Scan(&avg)
+	return avg, err
+}
+
+const getCallSessionByID = `-- name: GetCallSessionByID :one
+SELECT id, user_id, advisor_id, type, started_at, ended_at, status FROM sessions WHERE id = $1
+`
+
+func (q *Queries) GetCallSessionByID(ctx context.Context, id uuid.UUID) (Session, error) {
+	row := q.db.QueryRowContext(ctx, getCallSessionByID, id)
+	var i Session
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.AdvisorID,
+		&i.Type,
+		&i.StartedAt,
+		&i.EndedAt,
+		&i.Status,
+	)
+	return i, err
+}
+
+const getCallStatus = `-- name: GetCallStatus :one
+SELECT status_update, status_timestamp FROM call_logs WHERE session_id = $1 ORDER BY status_timestamp DESC LIMIT 1
+`
+
+type GetCallStatusRow struct {
+	StatusUpdate    sql.NullString `json:"status_update"`
+	StatusTimestamp sql.NullTime   `json:"status_timestamp"`
+}
+
+func (q *Queries) GetCallStatus(ctx context.Context, sessionID uuid.UUID) (GetCallStatusRow, error) {
+	row := q.db.QueryRowContext(ctx, getCallStatus, sessionID)
+	var i GetCallStatusRow
+	err := row.Scan(&i.StatusUpdate, &i.StatusTimestamp)
+	return i, err
+}
+
+const getFAQsByCategory = `-- name: GetFAQsByCategory :many
+SELECT id, question, answer, category, is_active FROM faqs WHERE category = $1 AND is_active = true ORDER BY question
+`
+
+type GetFAQsByCategoryRow struct {
+	ID       uuid.UUID    `json:"id"`
+	Question string       `json:"question"`
+	Answer   string       `json:"answer"`
+	Category string       `json:"category"`
+	IsActive sql.NullBool `json:"is_active"`
+}
+
+func (q *Queries) GetFAQsByCategory(ctx context.Context, category string) ([]GetFAQsByCategoryRow, error) {
+	rows, err := q.db.QueryContext(ctx, getFAQsByCategory, category)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetFAQsByCategoryRow
+	for rows.Next() {
+		var i GetFAQsByCategoryRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Question,
+			&i.Answer,
+			&i.Category,
+			&i.IsActive,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getFeedbackPromptBySession = `-- name: GetFeedbackPromptBySession :one
+SELECT id, session_id, user_id, advisor_id, prompt_sent_at, response_received_at, rating, feedback_text
+FROM call_feedback_prompts
+WHERE session_id = $1
+ORDER BY prompt_sent_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetFeedbackPromptBySession(ctx context.Context, sessionID uuid.UUID) (CallFeedbackPrompt, error) {
+	row := q.db.QueryRowContext(ctx, getFeedbackPromptBySession, sessionID)
+	var i CallFeedbackPrompt
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.UserID,
+		&i.AdvisorID,
+		&i.PromptSentAt,
+		&i.ResponseReceivedAt,
+		&i.Rating,
+		&i.FeedbackText,
+	)
+	return i, err
 }
 
 const getFlags = `-- name: GetFlags :many
@@ -414,7 +905,7 @@ func (q *Queries) GetMessages(ctx context.Context, arg GetMessagesParams) ([]Cha
 }
 
 const getPendingAdvisors = `-- name: GetPendingAdvisors :many
-SELECT a.id, a.user_id, a.bio, a.experience_years, a.languages, a.specializations, a.is_verified, a.hourly_rate, a.status, a.created_at, a.updated_at, u.id, u.email, u.phone, u.password_hash, u.display_name, u.role, u.gender, u.dob, u.created_at, u.updated_at, u.is_active FROM advisors a JOIN users u ON a.user_id = u.id WHERE a.status = 'PENDING' LIMIT $1 OFFSET $2
+SELECT a.id, a.user_id, a.bio, a.experience_years, a.languages, a.specializations, a.is_verified, a.hourly_rate, a.status, a.created_at, a.updated_at, u.id, u.email, u.phone, u.password_hash, u.display_name, u.role, u.gender, u.dob, u.created_at, u.updated_at, u.is_active, u.fcm_token, u.apns_token, u.device_type FROM advisors a JOIN users u ON a.user_id = u.id WHERE a.status = 'PENDING' LIMIT $1 OFFSET $2
 `
 
 type GetPendingAdvisorsParams struct {
@@ -445,6 +936,9 @@ type GetPendingAdvisorsRow struct {
 	CreatedAt_2     sql.NullTime   `json:"created_at_2"`
 	UpdatedAt_2     sql.NullTime   `json:"updated_at_2"`
 	IsActive        sql.NullBool   `json:"is_active"`
+	FcmToken        sql.NullString `json:"fcm_token"`
+	ApnsToken       sql.NullString `json:"apns_token"`
+	DeviceType      sql.NullString `json:"device_type"`
 }
 
 func (q *Queries) GetPendingAdvisors(ctx context.Context, arg GetPendingAdvisorsParams) ([]GetPendingAdvisorsRow, error) {
@@ -479,6 +973,272 @@ func (q *Queries) GetPendingAdvisors(ctx context.Context, arg GetPendingAdvisors
 			&i.CreatedAt_2,
 			&i.UpdatedAt_2,
 			&i.IsActive,
+			&i.FcmToken,
+			&i.ApnsToken,
+			&i.DeviceType,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getPendingFeedbackPrompts = `-- name: GetPendingFeedbackPrompts :many
+SELECT cfp.id, cfp.session_id, u.display_name as user_name, a.display_name as advisor_name, cfp.prompt_sent_at
+FROM call_feedback_prompts cfp
+JOIN users u ON u.id = cfp.user_id
+JOIN users a ON a.id = cfp.advisor_id
+WHERE cfp.response_received_at IS NULL
+ORDER BY cfp.prompt_sent_at DESC
+`
+
+type GetPendingFeedbackPromptsRow struct {
+	ID           uuid.UUID    `json:"id"`
+	SessionID    uuid.UUID    `json:"session_id"`
+	UserName     string       `json:"user_name"`
+	AdvisorName  string       `json:"advisor_name"`
+	PromptSentAt sql.NullTime `json:"prompt_sent_at"`
+}
+
+func (q *Queries) GetPendingFeedbackPrompts(ctx context.Context) ([]GetPendingFeedbackPromptsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getPendingFeedbackPrompts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetPendingFeedbackPromptsRow
+	for rows.Next() {
+		var i GetPendingFeedbackPromptsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.UserName,
+			&i.AdvisorName,
+			&i.PromptSentAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getRecentAdminFlags = `-- name: GetRecentAdminFlags :many
+SELECT id, reported_by, reported_user_id, reported_advisor_id, reason, session_id, created_at, status FROM admin_flags WHERE created_at >= NOW() - INTERVAL '%s days' ORDER BY created_at DESC
+`
+
+func (q *Queries) GetRecentAdminFlags(ctx context.Context) ([]AdminFlag, error) {
+	rows, err := q.db.QueryContext(ctx, getRecentAdminFlags)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AdminFlag
+	for rows.Next() {
+		var i AdminFlag
+		if err := rows.Scan(
+			&i.ID,
+			&i.ReportedBy,
+			&i.ReportedUserID,
+			&i.ReportedAdvisorID,
+			&i.Reason,
+			&i.SessionID,
+			&i.CreatedAt,
+			&i.Status,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getRecentEndedSessions = `-- name: GetRecentEndedSessions :many
+SELECT id, user_id, advisor_id, type, started_at, ended_at, status
+FROM sessions
+WHERE status = 'ENDED'
+AND ended_at >= NOW() - INTERVAL '24 hours'
+ORDER BY ended_at DESC
+`
+
+func (q *Queries) GetRecentEndedSessions(ctx context.Context) ([]Session, error) {
+	rows, err := q.db.QueryContext(ctx, getRecentEndedSessions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Session
+	for rows.Next() {
+		var i Session
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.AdvisorID,
+			&i.Type,
+			&i.StartedAt,
+			&i.EndedAt,
+			&i.Status,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getRecommendedAdvisors = `-- name: GetRecommendedAdvisors :many
+SELECT a.id, a.user_id, a.bio, a.experience_years, a.languages, a.specializations, a.is_verified, a.hourly_rate, a.status, a.created_at, a.updated_at, u.id, u.email, u.phone, u.password_hash, u.display_name, u.role, u.gender, u.dob, u.created_at, u.updated_at, u.is_active, u.fcm_token, u.apns_token, u.device_type, 
+       COALESCE(AVG(r.rating), 0) as average_rating
+FROM advisors a
+JOIN users u ON a.user_id = u.id
+LEFT JOIN ratings r ON a.user_id = r.advisor_id
+WHERE a.status = 'ONLINE' 
+AND a.is_verified = true
+AND ($1::text[] IS NULL OR a.specializations && $1::text[])
+AND ($2::text[] IS NULL OR a.languages && $2::text[])
+GROUP BY a.id, u.id
+ORDER BY average_rating DESC, a.experience_years DESC
+LIMIT $3 OFFSET $4
+`
+
+type GetRecommendedAdvisorsParams struct {
+	Column1 []string `json:"column_1"`
+	Column2 []string `json:"column_2"`
+	Limit   int32    `json:"limit"`
+	Offset  int32    `json:"offset"`
+}
+
+type GetRecommendedAdvisorsRow struct {
+	ID              uuid.UUID      `json:"id"`
+	UserID          uuid.UUID      `json:"user_id"`
+	Bio             sql.NullString `json:"bio"`
+	ExperienceYears sql.NullInt32  `json:"experience_years"`
+	Languages       []string       `json:"languages"`
+	Specializations []string       `json:"specializations"`
+	IsVerified      sql.NullBool   `json:"is_verified"`
+	HourlyRate      sql.NullString `json:"hourly_rate"`
+	Status          sql.NullString `json:"status"`
+	CreatedAt       sql.NullTime   `json:"created_at"`
+	UpdatedAt       sql.NullTime   `json:"updated_at"`
+	ID_2            uuid.UUID      `json:"id_2"`
+	Email           sql.NullString `json:"email"`
+	Phone           sql.NullString `json:"phone"`
+	PasswordHash    string         `json:"password_hash"`
+	DisplayName     string         `json:"display_name"`
+	Role            string         `json:"role"`
+	Gender          sql.NullString `json:"gender"`
+	Dob             sql.NullTime   `json:"dob"`
+	CreatedAt_2     sql.NullTime   `json:"created_at_2"`
+	UpdatedAt_2     sql.NullTime   `json:"updated_at_2"`
+	IsActive        sql.NullBool   `json:"is_active"`
+	FcmToken        sql.NullString `json:"fcm_token"`
+	ApnsToken       sql.NullString `json:"apns_token"`
+	DeviceType      sql.NullString `json:"device_type"`
+	AverageRating   interface{}    `json:"average_rating"`
+}
+
+func (q *Queries) GetRecommendedAdvisors(ctx context.Context, arg GetRecommendedAdvisorsParams) ([]GetRecommendedAdvisorsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getRecommendedAdvisors,
+		pq.Array(arg.Column1),
+		pq.Array(arg.Column2),
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetRecommendedAdvisorsRow
+	for rows.Next() {
+		var i GetRecommendedAdvisorsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Bio,
+			&i.ExperienceYears,
+			pq.Array(&i.Languages),
+			pq.Array(&i.Specializations),
+			&i.IsVerified,
+			&i.HourlyRate,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ID_2,
+			&i.Email,
+			&i.Phone,
+			&i.PasswordHash,
+			&i.DisplayName,
+			&i.Role,
+			&i.Gender,
+			&i.Dob,
+			&i.CreatedAt_2,
+			&i.UpdatedAt_2,
+			&i.IsActive,
+			&i.FcmToken,
+			&i.ApnsToken,
+			&i.DeviceType,
+			&i.AverageRating,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getReportsByStatus = `-- name: GetReportsByStatus :many
+SELECT id, reported_by, reported_user_id, reported_advisor_id, reason, session_id, created_at, status FROM admin_flags WHERE status = $1 ORDER BY created_at DESC
+`
+
+func (q *Queries) GetReportsByStatus(ctx context.Context, status sql.NullString) ([]AdminFlag, error) {
+	rows, err := q.db.QueryContext(ctx, getReportsByStatus, status)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AdminFlag
+	for rows.Next() {
+		var i AdminFlag
+		if err := rows.Scan(
+			&i.ID,
+			&i.ReportedBy,
+			&i.ReportedUserID,
+			&i.ReportedAdvisorID,
+			&i.Reason,
+			&i.SessionID,
+			&i.CreatedAt,
+			&i.Status,
 		); err != nil {
 			return nil, err
 		}
@@ -512,8 +1272,83 @@ func (q *Queries) GetSessionByID(ctx context.Context, id uuid.UUID) (Session, er
 	return i, err
 }
 
+const getSessionParticipantDeviceTokens = `-- name: GetSessionParticipantDeviceTokens :many
+SELECT DISTINCT u.fcm_token, u.apns_token, u.device_type
+FROM users u
+JOIN sessions s ON (s.user_id = u.id OR s.advisor_id = u.id)
+WHERE s.id = $1
+  AND u.id != $2
+  AND (u.fcm_token IS NOT NULL OR u.apns_token IS NOT NULL)
+`
+
+type GetSessionParticipantDeviceTokensParams struct {
+	ID   uuid.UUID `json:"id"`
+	ID_2 uuid.UUID `json:"id_2"`
+}
+
+type GetSessionParticipantDeviceTokensRow struct {
+	FcmToken   sql.NullString `json:"fcm_token"`
+	ApnsToken  sql.NullString `json:"apns_token"`
+	DeviceType sql.NullString `json:"device_type"`
+}
+
+func (q *Queries) GetSessionParticipantDeviceTokens(ctx context.Context, arg GetSessionParticipantDeviceTokensParams) ([]GetSessionParticipantDeviceTokensRow, error) {
+	rows, err := q.db.QueryContext(ctx, getSessionParticipantDeviceTokens, arg.ID, arg.ID_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetSessionParticipantDeviceTokensRow
+	for rows.Next() {
+		var i GetSessionParticipantDeviceTokensRow
+		if err := rows.Scan(&i.FcmToken, &i.ApnsToken, &i.DeviceType); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getSessionParticipants = `-- name: GetSessionParticipants :many
+SELECT user_id, advisor_id FROM sessions WHERE id = $1
+`
+
+type GetSessionParticipantsRow struct {
+	UserID    uuid.UUID     `json:"user_id"`
+	AdvisorID uuid.NullUUID `json:"advisor_id"`
+}
+
+func (q *Queries) GetSessionParticipants(ctx context.Context, id uuid.UUID) ([]GetSessionParticipantsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getSessionParticipants, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetSessionParticipantsRow
+	for rows.Next() {
+		var i GetSessionParticipantsRow
+		if err := rows.Scan(&i.UserID, &i.AdvisorID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, phone, password_hash, display_name, role, gender, dob, created_at, updated_at, is_active FROM users WHERE email = $1
+SELECT id, email, phone, password_hash, display_name, role, gender, dob, created_at, updated_at, is_active, fcm_token, apns_token, device_type FROM users WHERE email = $1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email sql.NullString) (User, error) {
@@ -531,12 +1366,15 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email sql.NullString) (Use
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.IsActive,
+		&i.FcmToken,
+		&i.ApnsToken,
+		&i.DeviceType,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, phone, password_hash, display_name, role, gender, dob, created_at, updated_at, is_active FROM users WHERE id = $1
+SELECT id, email, phone, password_hash, display_name, role, gender, dob, created_at, updated_at, is_active, fcm_token, apns_token, device_type FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -554,12 +1392,15 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.IsActive,
+		&i.FcmToken,
+		&i.ApnsToken,
+		&i.DeviceType,
 	)
 	return i, err
 }
 
 const getUserByPhone = `-- name: GetUserByPhone :one
-SELECT id, email, phone, password_hash, display_name, role, gender, dob, created_at, updated_at, is_active FROM users WHERE phone = $1
+SELECT id, email, phone, password_hash, display_name, role, gender, dob, created_at, updated_at, is_active, fcm_token, apns_token, device_type FROM users WHERE phone = $1
 `
 
 func (q *Queries) GetUserByPhone(ctx context.Context, phone sql.NullString) (User, error) {
@@ -577,8 +1418,122 @@ func (q *Queries) GetUserByPhone(ctx context.Context, phone sql.NullString) (Use
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.IsActive,
+		&i.FcmToken,
+		&i.ApnsToken,
+		&i.DeviceType,
 	)
 	return i, err
+}
+
+const getUserDeviceTokens = `-- name: GetUserDeviceTokens :one
+SELECT fcm_token, apns_token, device_type FROM users WHERE id = $1
+`
+
+type GetUserDeviceTokensRow struct {
+	FcmToken   sql.NullString `json:"fcm_token"`
+	ApnsToken  sql.NullString `json:"apns_token"`
+	DeviceType sql.NullString `json:"device_type"`
+}
+
+func (q *Queries) GetUserDeviceTokens(ctx context.Context, id uuid.UUID) (GetUserDeviceTokensRow, error) {
+	row := q.db.QueryRowContext(ctx, getUserDeviceTokens, id)
+	var i GetUserDeviceTokensRow
+	err := row.Scan(&i.FcmToken, &i.ApnsToken, &i.DeviceType)
+	return i, err
+}
+
+const getUserReports = `-- name: GetUserReports :many
+SELECT id, reported_by, reported_user_id, reported_advisor_id, reason, session_id, created_at, status FROM admin_flags WHERE reported_user_id = $1 OR reported_advisor_id = $1 ORDER BY created_at DESC
+`
+
+func (q *Queries) GetUserReports(ctx context.Context, reportedUserID uuid.NullUUID) ([]AdminFlag, error) {
+	rows, err := q.db.QueryContext(ctx, getUserReports, reportedUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AdminFlag
+	for rows.Next() {
+		var i AdminFlag
+		if err := rows.Scan(
+			&i.ID,
+			&i.ReportedBy,
+			&i.ReportedUserID,
+			&i.ReportedAdvisorID,
+			&i.Reason,
+			&i.SessionID,
+			&i.CreatedAt,
+			&i.Status,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getUserSessionHistory = `-- name: GetUserSessionHistory :many
+SELECT s.id, s.user_id, s.advisor_id, s.type, s.started_at, s.ended_at, s.status, a.user_id as advisor_user_id
+FROM sessions s
+LEFT JOIN advisors a ON s.advisor_id = a.id
+WHERE s.user_id = $1
+ORDER BY s.started_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type GetUserSessionHistoryParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	Limit  int32     `json:"limit"`
+	Offset int32     `json:"offset"`
+}
+
+type GetUserSessionHistoryRow struct {
+	ID            uuid.UUID      `json:"id"`
+	UserID        uuid.UUID      `json:"user_id"`
+	AdvisorID     uuid.NullUUID  `json:"advisor_id"`
+	Type          string         `json:"type"`
+	StartedAt     sql.NullTime   `json:"started_at"`
+	EndedAt       sql.NullTime   `json:"ended_at"`
+	Status        sql.NullString `json:"status"`
+	AdvisorUserID uuid.NullUUID  `json:"advisor_user_id"`
+}
+
+func (q *Queries) GetUserSessionHistory(ctx context.Context, arg GetUserSessionHistoryParams) ([]GetUserSessionHistoryRow, error) {
+	rows, err := q.db.QueryContext(ctx, getUserSessionHistory, arg.UserID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetUserSessionHistoryRow
+	for rows.Next() {
+		var i GetUserSessionHistoryRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.AdvisorID,
+			&i.Type,
+			&i.StartedAt,
+			&i.EndedAt,
+			&i.Status,
+			&i.AdvisorUserID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getUserSessions = `-- name: GetUserSessions :many
@@ -622,6 +1577,40 @@ func (q *Queries) GetUserSessions(ctx context.Context, arg GetUserSessionsParams
 	return items, nil
 }
 
+const getUserSpecializations = `-- name: GetUserSpecializations :many
+SELECT s.name, s.category FROM specializations s
+JOIN advisors a ON a.specializations && ARRAY[s.name]
+WHERE a.user_id = $1
+`
+
+type GetUserSpecializationsRow struct {
+	Name     string `json:"name"`
+	Category string `json:"category"`
+}
+
+func (q *Queries) GetUserSpecializations(ctx context.Context, userID uuid.UUID) ([]GetUserSpecializationsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getUserSpecializations, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetUserSpecializationsRow
+	for rows.Next() {
+		var i GetUserSpecializationsRow
+		if err := rows.Scan(&i.Name, &i.Category); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const insertAIInteraction = `-- name: InsertAIInteraction :one
 INSERT INTO ai_interactions (user_id, prompt, response)
 VALUES ($1, $2, $3)
@@ -650,7 +1639,7 @@ func (q *Queries) InsertAIInteraction(ctx context.Context, arg InsertAIInteracti
 const insertCallLog = `-- name: InsertCallLog :one
 INSERT INTO call_logs (session_id, external_call_id, started_at, ended_at, duration_seconds, status)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, session_id, external_call_id, started_at, ended_at, duration_seconds, status
+RETURNING id, session_id, external_call_id, started_at, ended_at, duration_seconds, status, status_update, status_timestamp
 `
 
 type InsertCallLogParams struct {
@@ -680,6 +1669,8 @@ func (q *Queries) InsertCallLog(ctx context.Context, arg InsertCallLogParams) (C
 		&i.EndedAt,
 		&i.DurationSeconds,
 		&i.Status,
+		&i.StatusUpdate,
+		&i.StatusTimestamp,
 	)
 	return i, err
 }
@@ -717,8 +1708,33 @@ func (q *Queries) InsertMessage(ctx context.Context, arg InsertMessageParams) (C
 	return i, err
 }
 
+const insertMessageWithID = `-- name: InsertMessageWithID :one
+INSERT INTO chat_messages (session_id, sender_type, sender_id, content)
+VALUES ($1, $2, $3, $4)
+RETURNING id
+`
+
+type InsertMessageWithIDParams struct {
+	SessionID  uuid.UUID `json:"session_id"`
+	SenderType string    `json:"sender_type"`
+	SenderID   uuid.UUID `json:"sender_id"`
+	Content    string    `json:"content"`
+}
+
+func (q *Queries) InsertMessageWithID(ctx context.Context, arg InsertMessageWithIDParams) (uuid.UUID, error) {
+	row := q.db.QueryRowContext(ctx, insertMessageWithID,
+		arg.SessionID,
+		arg.SenderType,
+		arg.SenderID,
+		arg.Content,
+	)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const listAdvisors = `-- name: ListAdvisors :many
-SELECT a.id, a.user_id, a.bio, a.experience_years, a.languages, a.specializations, a.is_verified, a.hourly_rate, a.status, a.created_at, a.updated_at, u.id, u.email, u.phone, u.password_hash, u.display_name, u.role, u.gender, u.dob, u.created_at, u.updated_at, u.is_active, 0 as average_rating
+SELECT a.id, a.user_id, a.bio, a.experience_years, a.languages, a.specializations, a.is_verified, a.hourly_rate, a.status, a.created_at, a.updated_at, u.id, u.email, u.phone, u.password_hash, u.display_name, u.role, u.gender, u.dob, u.created_at, u.updated_at, u.is_active, u.fcm_token, u.apns_token, u.device_type, 0 as average_rating
 FROM advisors a
 JOIN users u ON a.user_id = u.id
 WHERE a.status = 'ONLINE'
@@ -726,8 +1742,8 @@ LIMIT $2 OFFSET $1
 `
 
 type ListAdvisorsParams struct {
-	OffsetRows int32 `json:"offset_rows"`
-	LimitRows  int32 `json:"limit_rows"`
+	Offset int32 `json:"offset"`
+	Limit  int32 `json:"limit"`
 }
 
 type ListAdvisorsRow struct {
@@ -753,11 +1769,14 @@ type ListAdvisorsRow struct {
 	CreatedAt_2     sql.NullTime   `json:"created_at_2"`
 	UpdatedAt_2     sql.NullTime   `json:"updated_at_2"`
 	IsActive        sql.NullBool   `json:"is_active"`
+	FcmToken        sql.NullString `json:"fcm_token"`
+	ApnsToken       sql.NullString `json:"apns_token"`
+	DeviceType      sql.NullString `json:"device_type"`
 	AverageRating   int32          `json:"average_rating"`
 }
 
 func (q *Queries) ListAdvisors(ctx context.Context, arg ListAdvisorsParams) ([]ListAdvisorsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listAdvisors, arg.OffsetRows, arg.LimitRows)
+	rows, err := q.db.QueryContext(ctx, listAdvisors, arg.Offset, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -788,6 +1807,9 @@ func (q *Queries) ListAdvisors(ctx context.Context, arg ListAdvisorsParams) ([]L
 			&i.CreatedAt_2,
 			&i.UpdatedAt_2,
 			&i.IsActive,
+			&i.FcmToken,
+			&i.ApnsToken,
+			&i.DeviceType,
 			&i.AverageRating,
 		); err != nil {
 			return nil, err
@@ -801,6 +1823,82 @@ func (q *Queries) ListAdvisors(ctx context.Context, arg ListAdvisorsParams) ([]L
 		return nil, err
 	}
 	return items, nil
+}
+
+const searchFAQs = `-- name: SearchFAQs :many
+SELECT id, question, answer, category, is_active
+FROM faqs
+WHERE (question ILIKE '%' || $1 || '%' OR answer ILIKE '%' || $1 || '%')
+  AND is_active = true
+ORDER BY category, question
+`
+
+type SearchFAQsRow struct {
+	ID       uuid.UUID    `json:"id"`
+	Question string       `json:"question"`
+	Answer   string       `json:"answer"`
+	Category string       `json:"category"`
+	IsActive sql.NullBool `json:"is_active"`
+}
+
+func (q *Queries) SearchFAQs(ctx context.Context, dollar_1 sql.NullString) ([]SearchFAQsRow, error) {
+	rows, err := q.db.QueryContext(ctx, searchFAQs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchFAQsRow
+	for rows.Next() {
+		var i SearchFAQsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Question,
+			&i.Answer,
+			&i.Category,
+			&i.IsActive,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const submitFeedback = `-- name: SubmitFeedback :exec
+UPDATE call_feedback_prompts
+SET response_received_at = NOW(), rating = $1, feedback_text = $2
+WHERE id = $3
+`
+
+type SubmitFeedbackParams struct {
+	Rating       sql.NullInt32  `json:"rating"`
+	FeedbackText sql.NullString `json:"feedback_text"`
+	ID           uuid.UUID      `json:"id"`
+}
+
+func (q *Queries) SubmitFeedback(ctx context.Context, arg SubmitFeedbackParams) error {
+	_, err := q.db.ExecContext(ctx, submitFeedback, arg.Rating, arg.FeedbackText, arg.ID)
+	return err
+}
+
+const updateAdminFlagStatus = `-- name: UpdateAdminFlagStatus :exec
+UPDATE admin_flags SET status = $2 WHERE id = $1
+`
+
+type UpdateAdminFlagStatusParams struct {
+	ID     uuid.UUID      `json:"id"`
+	Status sql.NullString `json:"status"`
+}
+
+func (q *Queries) UpdateAdminFlagStatus(ctx context.Context, arg UpdateAdminFlagStatusParams) error {
+	_, err := q.db.ExecContext(ctx, updateAdminFlagStatus, arg.ID, arg.Status)
+	return err
 }
 
 const updateAdvisor = `-- name: UpdateAdvisor :one
@@ -846,6 +1944,68 @@ func (q *Queries) UpdateAdvisor(ctx context.Context, arg UpdateAdvisorParams) (A
 	return i, err
 }
 
+const updateAdvisorStatus = `-- name: UpdateAdvisorStatus :exec
+UPDATE advisors SET status = $2, updated_at = NOW() WHERE id = $1
+`
+
+type UpdateAdvisorStatusParams struct {
+	ID     uuid.UUID      `json:"id"`
+	Status sql.NullString `json:"status"`
+}
+
+func (q *Queries) UpdateAdvisorStatus(ctx context.Context, arg UpdateAdvisorStatusParams) error {
+	_, err := q.db.ExecContext(ctx, updateAdvisorStatus, arg.ID, arg.Status)
+	return err
+}
+
+const updateCallStatus = `-- name: UpdateCallStatus :exec
+
+UPDATE call_logs SET status_update = $1, status_timestamp = NOW() WHERE session_id = $2
+`
+
+type UpdateCallStatusParams struct {
+	StatusUpdate sql.NullString `json:"status_update"`
+	SessionID    uuid.UUID      `json:"session_id"`
+}
+
+// Call Status and Feedback
+func (q *Queries) UpdateCallStatus(ctx context.Context, arg UpdateCallStatusParams) error {
+	_, err := q.db.ExecContext(ctx, updateCallStatus, arg.StatusUpdate, arg.SessionID)
+	return err
+}
+
+const updateFAQ = `-- name: UpdateFAQ :exec
+UPDATE faqs SET question = $1, answer = $2, category = $3, is_active = $4 WHERE id = $5
+`
+
+type UpdateFAQParams struct {
+	Question string       `json:"question"`
+	Answer   string       `json:"answer"`
+	Category string       `json:"category"`
+	IsActive sql.NullBool `json:"is_active"`
+	ID       uuid.UUID    `json:"id"`
+}
+
+func (q *Queries) UpdateFAQ(ctx context.Context, arg UpdateFAQParams) error {
+	_, err := q.db.ExecContext(ctx, updateFAQ,
+		arg.Question,
+		arg.Answer,
+		arg.Category,
+		arg.IsActive,
+		arg.ID,
+	)
+	return err
+}
+
+const updateMessageReadStatus = `-- name: UpdateMessageReadStatus :exec
+UPDATE chat_messages SET is_read = true, read_at = NOW() WHERE id = $1
+`
+
+func (q *Queries) UpdateMessageReadStatus(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, updateMessageReadStatus, id)
+	return err
+}
+
 const updateSessionStatus = `-- name: UpdateSessionStatus :exec
 UPDATE sessions SET status = $2, ended_at = NOW() WHERE id = $1
 `
@@ -860,10 +2020,33 @@ func (q *Queries) UpdateSessionStatus(ctx context.Context, arg UpdateSessionStat
 	return err
 }
 
+const updateSpecialization = `-- name: UpdateSpecialization :exec
+UPDATE specializations SET name = $1, description = $2, category = $3, is_active = $4 WHERE id = $5
+`
+
+type UpdateSpecializationParams struct {
+	Name        string         `json:"name"`
+	Description sql.NullString `json:"description"`
+	Category    string         `json:"category"`
+	IsActive    sql.NullBool   `json:"is_active"`
+	ID          uuid.UUID      `json:"id"`
+}
+
+func (q *Queries) UpdateSpecialization(ctx context.Context, arg UpdateSpecializationParams) error {
+	_, err := q.db.ExecContext(ctx, updateSpecialization,
+		arg.Name,
+		arg.Description,
+		arg.Category,
+		arg.IsActive,
+		arg.ID,
+	)
+	return err
+}
+
 const updateUser = `-- name: UpdateUser :one
 UPDATE users SET display_name = $2, gender = $3, dob = $4, updated_at = NOW()
 WHERE id = $1
-RETURNING id, email, phone, password_hash, display_name, role, gender, dob, created_at, updated_at, is_active
+RETURNING id, email, phone, password_hash, display_name, role, gender, dob, created_at, updated_at, is_active, fcm_token, apns_token, device_type
 `
 
 type UpdateUserParams struct {
@@ -893,6 +2076,107 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.IsActive,
+		&i.FcmToken,
+		&i.ApnsToken,
+		&i.DeviceType,
 	)
 	return i, err
+}
+
+const updateUserAPNSToken = `-- name: UpdateUserAPNSToken :exec
+UPDATE users SET apns_token = $2, device_type = $3, updated_at = NOW()
+WHERE id = $1
+`
+
+type UpdateUserAPNSTokenParams struct {
+	ID         uuid.UUID      `json:"id"`
+	ApnsToken  sql.NullString `json:"apns_token"`
+	DeviceType sql.NullString `json:"device_type"`
+}
+
+func (q *Queries) UpdateUserAPNSToken(ctx context.Context, arg UpdateUserAPNSTokenParams) error {
+	_, err := q.db.ExecContext(ctx, updateUserAPNSToken, arg.ID, arg.ApnsToken, arg.DeviceType)
+	return err
+}
+
+const updateUserCredentials = `-- name: UpdateUserCredentials :one
+UPDATE users SET email = $2, phone = $3, password_hash = $4, updated_at = NOW()
+WHERE id = $1
+RETURNING id, email, phone, password_hash, display_name, role, gender, dob, created_at, updated_at, is_active
+`
+
+type UpdateUserCredentialsParams struct {
+	ID           uuid.UUID      `json:"id"`
+	Email        sql.NullString `json:"email"`
+	Phone        sql.NullString `json:"phone"`
+	PasswordHash string         `json:"password_hash"`
+}
+
+type UpdateUserCredentialsRow struct {
+	ID           uuid.UUID      `json:"id"`
+	Email        sql.NullString `json:"email"`
+	Phone        sql.NullString `json:"phone"`
+	PasswordHash string         `json:"password_hash"`
+	DisplayName  string         `json:"display_name"`
+	Role         string         `json:"role"`
+	Gender       sql.NullString `json:"gender"`
+	Dob          sql.NullTime   `json:"dob"`
+	CreatedAt    sql.NullTime   `json:"created_at"`
+	UpdatedAt    sql.NullTime   `json:"updated_at"`
+	IsActive     sql.NullBool   `json:"is_active"`
+}
+
+func (q *Queries) UpdateUserCredentials(ctx context.Context, arg UpdateUserCredentialsParams) (UpdateUserCredentialsRow, error) {
+	row := q.db.QueryRowContext(ctx, updateUserCredentials,
+		arg.ID,
+		arg.Email,
+		arg.Phone,
+		arg.PasswordHash,
+	)
+	var i UpdateUserCredentialsRow
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Phone,
+		&i.PasswordHash,
+		&i.DisplayName,
+		&i.Role,
+		&i.Gender,
+		&i.Dob,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IsActive,
+	)
+	return i, err
+}
+
+const updateUserFCMToken = `-- name: UpdateUserFCMToken :exec
+UPDATE users SET fcm_token = $2, device_type = $3, updated_at = NOW()
+WHERE id = $1
+`
+
+type UpdateUserFCMTokenParams struct {
+	ID         uuid.UUID      `json:"id"`
+	FcmToken   sql.NullString `json:"fcm_token"`
+	DeviceType sql.NullString `json:"device_type"`
+}
+
+func (q *Queries) UpdateUserFCMToken(ctx context.Context, arg UpdateUserFCMTokenParams) error {
+	_, err := q.db.ExecContext(ctx, updateUserFCMToken, arg.ID, arg.FcmToken, arg.DeviceType)
+	return err
+}
+
+const updateUserPassword = `-- name: UpdateUserPassword :exec
+UPDATE users SET password_hash = $2, updated_at = NOW()
+WHERE id = $1
+`
+
+type UpdateUserPasswordParams struct {
+	ID           uuid.UUID `json:"id"`
+	PasswordHash string    `json:"password_hash"`
+}
+
+func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {
+	_, err := q.db.ExecContext(ctx, updateUserPassword, arg.ID, arg.PasswordHash)
+	return err
 }

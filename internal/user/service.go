@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"loveguru/internal/db"
@@ -110,6 +111,25 @@ func (s *Service) GetSessions(ctx context.Context, req *user.GetSessionsRequest)
 	}, nil
 }
 
+// TODO: Implement these methods once protobuf types are generated
+/*
+func (s *Service) CreateAnonymousProfile(ctx context.Context, req *user.CreateAnonymousProfileRequest) (*user.CreateAnonymousProfileResponse, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *Service) ConvertAnonymousToFull(ctx context.Context, req *user.ConvertAnonymousToFullRequest) (*user.ConvertAnonymousToFullResponse, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *Service) ForgotPassword(ctx context.Context, req *user.ForgotPasswordRequest) (*user.ForgotPasswordResponse, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *Service) ResetPassword(ctx context.Context, req *user.ResetPasswordRequest) (*user.ResetPasswordResponse, error) {
+	return nil, errors.New("not implemented")
+}
+*/
+
 func (s *Service) mapUser(u db.User) *common.User {
 	return &common.User{
 		Id:          u.ID.String(),
@@ -128,4 +148,14 @@ func (s *Service) mapUser(u db.User) *common.User {
 func parseTime(s string) time.Time {
 	t, _ := time.Parse("2006-01-02", s)
 	return t
+}
+
+func generateOTP() string {
+	// Simple OTP generator - in production, use crypto/rand
+	return fmt.Sprintf("%06d", 100000+int(time.Now().UnixNano())%900000)
+}
+
+func validateOTP(otp string) bool {
+	// Simple validation - in production, check against stored OTP with expiry
+	return len(otp) == 6 && otp != ""
 }

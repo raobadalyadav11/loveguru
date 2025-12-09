@@ -24,8 +24,8 @@ func NewService(repo *db.Queries) *Service {
 
 func (s *Service) ListAdvisors(ctx context.Context, req *advisor.ListAdvisorsRequest) (*advisor.ListAdvisorsResponse, error) {
 	advisors, err := s.repo.ListAdvisors(ctx, db.ListAdvisorsParams{
-		LimitRows:  int32(req.Limit),
-		OffsetRows: int32(req.Offset),
+		Limit:  int32(req.Limit),
+		Offset: int32(req.Offset),
 	})
 	if err != nil {
 		return nil, err

@@ -64,3 +64,56 @@ func (c *Cache) Ping(ctx context.Context) error {
 func (c *Cache) Close() error {
 	return c.client.Close()
 }
+
+// Increment increments the value at key by amount
+func (c *Cache) Increment(ctx context.Context, key string) (int64, error) {
+	return c.client.Incr(ctx, key).Result()
+}
+
+// Expire sets a timeout on key
+func (c *Cache) Expire(ctx context.Context, key string, expiration time.Duration) error {
+	return c.client.Expire(ctx, key, expiration).Err()
+}
+
+// GetTTL returns the remaining time to live of a key
+func (c *Cache) GetTTL(ctx context.Context, key string) (time.Duration, error) {
+	return c.client.TTL(ctx, key).Result()
+}
+
+// HSet sets field in the hash stored at key
+func (c *Cache) HSet(ctx context.Context, key, field string, value interface{}) error {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	return c.client.HSet(ctx, key, field, data).Err()
+}
+
+// HGet gets field from the hash stored at key
+func (c *Cache) HGet(ctx context.Context, key, field string, dest interface{}) error {
+	data, err := c.client.HGet(ctx, key, field).Result()
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal([]byte(data), dest)
+}
+
+// HDel deletes field from the hash stored at key
+func (c *Cache) HDel(ctx context.Context, key, field string) error {
+	return c.client.HDel(ctx, key, field).Err()
+}
+
+// LPush pushes value to the head of the list stored at key
+func (c *Cache) LPush(ctx context.Context, key string, values ...interface{}) error {
+	return c.client.LPush(ctx, key, values...).Err()
+}
+
+// LRange returns the specified elements of the list stored at key
+func (c *Cache) LRange(ctx context.Context, key string, start, stop int64) ([]string, error) {
+	return c.client.LRange(ctx, key, start, stop).Result()
+}
+
+// LTrim trims the list to the specified range
+func (c *Cache) LTrim(ctx context.Context, key string, start, stop int64) error {
+	return c.client.LTrim(ctx, key, start, stop).Err()
+}

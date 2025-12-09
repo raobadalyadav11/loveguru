@@ -43,6 +43,17 @@ type AiInteraction struct {
 	CreatedAt sql.NullTime `json:"created_at"`
 }
 
+type CallFeedbackPrompt struct {
+	ID                 uuid.UUID      `json:"id"`
+	SessionID          uuid.UUID      `json:"session_id"`
+	UserID             uuid.UUID      `json:"user_id"`
+	AdvisorID          uuid.UUID      `json:"advisor_id"`
+	PromptSentAt       sql.NullTime   `json:"prompt_sent_at"`
+	ResponseReceivedAt sql.NullTime   `json:"response_received_at"`
+	Rating             sql.NullInt32  `json:"rating"`
+	FeedbackText       sql.NullString `json:"feedback_text"`
+}
+
 type CallLog struct {
 	ID              uuid.UUID      `json:"id"`
 	SessionID       uuid.UUID      `json:"session_id"`
@@ -51,6 +62,8 @@ type CallLog struct {
 	EndedAt         sql.NullTime   `json:"ended_at"`
 	DurationSeconds sql.NullInt32  `json:"duration_seconds"`
 	Status          sql.NullString `json:"status"`
+	StatusUpdate    sql.NullString `json:"status_update"`
+	StatusTimestamp sql.NullTime   `json:"status_timestamp"`
 }
 
 type ChatMessage struct {
@@ -61,6 +74,16 @@ type ChatMessage struct {
 	Content    string       `json:"content"`
 	CreatedAt  sql.NullTime `json:"created_at"`
 	IsRead     sql.NullBool `json:"is_read"`
+}
+
+type Faq struct {
+	ID        uuid.UUID    `json:"id"`
+	Question  string       `json:"question"`
+	Answer    string       `json:"answer"`
+	Category  string       `json:"category"`
+	IsActive  sql.NullBool `json:"is_active"`
+	CreatedAt sql.NullTime `json:"created_at"`
+	UpdatedAt sql.NullTime `json:"updated_at"`
 }
 
 type Rating struct {
@@ -83,6 +106,16 @@ type Session struct {
 	Status    sql.NullString `json:"status"`
 }
 
+type Specialization struct {
+	ID          uuid.UUID      `json:"id"`
+	Name        string         `json:"name"`
+	Description sql.NullString `json:"description"`
+	Category    string         `json:"category"`
+	IsActive    sql.NullBool   `json:"is_active"`
+	CreatedAt   sql.NullTime   `json:"created_at"`
+	UpdatedAt   sql.NullTime   `json:"updated_at"`
+}
+
 type User struct {
 	ID           uuid.UUID      `json:"id"`
 	Email        sql.NullString `json:"email"`
@@ -95,4 +128,7 @@ type User struct {
 	CreatedAt    sql.NullTime   `json:"created_at"`
 	UpdatedAt    sql.NullTime   `json:"updated_at"`
 	IsActive     sql.NullBool   `json:"is_active"`
+	FcmToken     sql.NullString `json:"fcm_token"`
+	ApnsToken    sql.NullString `json:"apns_token"`
+	DeviceType   sql.NullString `json:"device_type"`
 }

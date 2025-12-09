@@ -4,9 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log"
 
 	"loveguru/internal/db"
 	"loveguru/internal/grpc/middleware"
+	"loveguru/internal/notifications"
 	"loveguru/proto/chat"
 	"loveguru/proto/common"
 
@@ -129,4 +131,105 @@ func (s *Service) UpdateSessionStatus(ctx context.Context, sessionID string) err
 		ID:     sid,
 		Status: sql.NullString{String: "ENDED", Valid: true},
 	})
+}
+
+func (s *Service) InsertMessageWithID(ctx context.Context, sessionID, senderType, senderID, content string) (string, error) {
+	return "", errors.New("not implemented")
+}
+
+func (s *Service) UpdateMessageReadStatus(ctx context.Context, messageID, readerID string) error {
+	return errors.New("not implemented")
+}
+
+func (s *Service) GetSessionParticipants(ctx context.Context, sessionID string) ([]string, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *Service) UpdateSessionStatusWithNotification(ctx context.Context, sessionID, status, userID string) error {
+	return errors.New("not implemented")
+}
+
+func (s *Service) GetActiveSessions(ctx context.Context, userID string) ([]db.Session, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *Service) GetSessionAnalytics(ctx context.Context, userID string) (*SessionAnalytics, error) {
+	return nil, errors.New("not implemented")
+}
+
+// sendPushNotificationForMessage sends push notifications to other session participants
+func (s *Service) sendPushNotificationForMessage(ctx context.Context, sessionID, senderID, content string) {
+	// Get device tokens for other participants
+	deviceTokens, err := s.getDeviceTokensForSession(sessionID, senderID)
+	if err != nil {
+		log.Printf("Error getting device tokens: %v", err)
+		return
+	}
+
+	if len(deviceTokens) == 0 {
+		return // No devices to notify
+	}
+
+	// Get sender name for notification
+	senderName, err := s.getUserDisplayName(ctx, senderID)
+	if err != nil {
+		log.Printf("Error getting sender name: %v", err)
+		senderName = "Someone"
+	}
+
+	// Prepare message content (truncate if too long)
+	notificationContent := content
+	if len(notificationContent) > 50 {
+		notificationContent = notificationContent[:50] + "..."
+	}
+
+	// Send push notification
+	notificationService := notifications.NewNotificationService()
+	err = notificationService.SendChatNotification(deviceTokens, senderName, notificationContent, sessionID)
+	if err != nil {
+		log.Printf("Error sending push notification: %v", err)
+	}
+}
+
+// getDeviceTokensForSession gets device tokens for all participants except the sender
+func (s *Service) getDeviceTokensForSession(sessionID, excludeUserID string) ([]string, error) {
+	// This would need to be implemented with proper queries
+	// For now, return empty slice - to be implemented with the database queries
+	return []string{}, nil
+}
+
+// getUserDisplayName gets the display name for a user
+func (s *Service) getUserDisplayName(ctx context.Context, userID string) (string, error) {
+	uid, err := uuid.Parse(userID)
+	if err != nil {
+		return "", err
+	}
+
+	user, err := s.repo.GetUserByID(ctx, uid)
+	if err != nil {
+		return "", err
+	}
+
+	return user.DisplayName, nil
+}
+
+// SendMessageWithNotification sends a message and triggers push notifications
+func (s *Service) SendMessageWithNotification(ctx context.Context, sessionID, senderType, senderID, content string) (string, error) {
+	// Insert message and get ID
+	messageID, err := s.InsertMessageWithID(ctx, sessionID, senderType, senderID, content)
+	if err != nil {
+		return "", err
+	}
+
+	// Send push notification asynchronously
+	go s.sendPushNotificationForMessage(ctx, sessionID, senderID, content)
+
+	return messageID, nil
+}
+
+type SessionAnalytics struct {
+	TotalSessions     int32
+	CompletedSessions int32
+	AverageDuration   float64
+	CompletionRate    float64
 }

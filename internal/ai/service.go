@@ -95,3 +95,55 @@ func (s *Service) ChatStream(stream ai.AIService_ChatStreamServer) error {
 		}
 	}
 }
+
+// TODO: Implement FAQ management once database queries are available
+/*
+func (s *Service) AnswerFAQ(ctx context.Context, question string) (string, error) {
+	// For now, just use OpenAI to generate a response
+	response, err := s.openai.Chat(ctx, question, []string{"You are a helpful love and relationship advisor. Answer the following question:"})
+	if err != nil {
+		return "", err
+	}
+	return response, nil
+}
+
+func (s *Service) GetFAQs(ctx context.Context, category string) ([]FAQ, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *Service) CreateFAQ(ctx context.Context, question, answer, category string) (string, error) {
+	return "", errors.New("not implemented")
+}
+
+func (s *Service) UpdateFAQ(ctx context.Context, faqID, question, answer, category string, isActive bool) error {
+	return errors.New("not implemented")
+}
+
+func (s *Service) DeleteFAQ(ctx context.Context, faqID string) error {
+	return errors.New("not implemented")
+}
+
+func (s *Service) SmartFAQAnswer(ctx context.Context, question string, userHistory []string) (string, error) {
+	// For now, just use OpenAI to generate a response
+	contextMessages := []string{
+		"You are a helpful love and relationship advisor.",
+		"User's previous questions: " + fmt.Sprintf("%v", userHistory),
+		"Answer the following question based on the context:",
+	}
+
+	response, err := s.openai.Chat(ctx, question, contextMessages)
+	if err != nil {
+		return "", err
+	}
+
+	return response, nil
+}
+*/
+
+type FAQ struct {
+	ID       string
+	Question string
+	Answer   string
+	Category string
+	IsActive bool
+}

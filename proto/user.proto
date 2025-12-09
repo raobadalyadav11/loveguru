@@ -10,6 +10,10 @@ service UserService {
   rpc GetProfile (GetProfileRequest) returns (GetProfileResponse);
   rpc UpdateProfile (UpdateProfileRequest) returns (UpdateProfileResponse);
   rpc GetSessions (GetSessionsRequest) returns (GetSessionsResponse);
+  rpc CreateAnonymousProfile (CreateAnonymousProfileRequest) returns (CreateAnonymousProfileResponse);
+  rpc ConvertAnonymousToFull (ConvertAnonymousToFullRequest) returns (ConvertAnonymousToFullResponse);
+  rpc ForgotPassword (ForgotPasswordRequest) returns (ForgotPasswordResponse);
+  rpc ResetPassword (ResetPasswordRequest) returns (ResetPasswordResponse);
 }
 
 message GetProfileRequest {
@@ -38,4 +42,47 @@ message GetSessionsRequest {
 
 message GetSessionsResponse {
   repeated common.Session sessions = 1;
+}
+
+message CreateAnonymousProfileRequest {
+  string display_name = 1;
+  common.Gender gender = 2;
+  string dob = 3;
+}
+
+message CreateAnonymousProfileResponse {
+  common.User user = 1;
+  common.Tokens tokens = 2;
+}
+
+message ConvertAnonymousToFullRequest {
+  string email = 1;
+  string phone = 2;
+  string password = 3;
+}
+
+message ConvertAnonymousToFullResponse {
+  common.User user = 1;
+  common.Tokens tokens = 2;
+}
+
+message ForgotPasswordRequest {
+  string email = 1;
+  string phone = 2;
+}
+
+message ForgotPasswordResponse {
+  bool success = 1;
+  string otp = 2; // In production, don't return OTP in response
+}
+
+message ResetPasswordRequest {
+  string email = 1;
+  string phone = 2;
+  string otp = 3;
+  string new_password = 4;
+}
+
+message ResetPasswordResponse {
+  bool success = 1;
 }

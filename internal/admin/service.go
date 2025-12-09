@@ -123,3 +123,38 @@ func (s *Service) BlockUser(ctx context.Context, req *admin.BlockUserRequest) (*
 
 	return &admin.BlockUserResponse{Success: true}, nil
 }
+
+// TODO: Implement specialization management once database queries are available
+/*
+func (s *Service) GetAllSpecializations(ctx context.Context) ([]Specialization, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *Service) GetActiveSpecializationsByCategory(ctx context.Context, category string) ([]Specialization, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *Service) CreateSpecialization(ctx context.Context, name, description, category string) (string, error) {
+	return "", errors.New("not implemented")
+}
+
+func (s *Service) UpdateSpecialization(ctx context.Context, specID, name, description, category string, isActive bool) error {
+	return errors.New("not implemented")
+}
+
+func (s *Service) DeleteSpecialization(ctx context.Context, specID string) error {
+	return errors.New("not implemented")
+}
+
+func (s *Service) GetUserSpecializations(ctx context.Context, userID string) ([]Specialization, error) {
+	return nil, errors.New("not implemented")
+}
+*/
+
+type Specialization struct {
+	ID          string
+	Name        string
+	Description string
+	Category    string
+	IsActive    bool
+}

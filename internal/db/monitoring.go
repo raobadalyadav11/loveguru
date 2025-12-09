@@ -205,7 +205,24 @@ func (dm *DatabaseMonitor) GetMetrics() *DatabaseMetrics {
 	defer dm.metrics.mu.RUnlock()
 
 	// Return a copy to avoid race conditions
-	metrics := *dm.metrics
+	metrics := DatabaseMetrics{
+		ActiveConnections:      dm.metrics.ActiveConnections,
+		IdleConnections:        dm.metrics.IdleConnections,
+		TotalQueries:           dm.metrics.TotalQueries,
+		FailedQueries:          dm.metrics.FailedQueries,
+		AverageQueryTime:       dm.metrics.AverageQueryTime,
+		MaxQueryTime:           dm.metrics.MaxQueryTime,
+		MinQueryTime:           dm.metrics.MinQueryTime,
+		ConstraintViolations:   dm.metrics.ConstraintViolations,
+		ConnectionErrors:       dm.metrics.ConnectionErrors,
+		TimeoutErrors:          dm.metrics.TimeoutErrors,
+		TotalTransactions:      dm.metrics.TotalTransactions,
+		FailedTransactions:     dm.metrics.FailedTransactions,
+		AverageTransactionTime: dm.metrics.AverageTransactionTime,
+		LastHealthCheck:        dm.metrics.LastHealthCheck,
+		IsHealthy:              dm.metrics.IsHealthy,
+		HealthMessage:          dm.metrics.HealthMessage,
+	}
 	return &metrics
 }
 
@@ -278,12 +295,48 @@ func MonitoredTransaction(ctx context.Context, monitor *DatabaseMonitor, db *sql
 	return err
 }
 
+// Transaction executes a database transaction with proper error handling
+func Transaction(ctx context.Context, db *sql.DB, txFunc func(*Queries) error) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	// Create a temporary Queries instance bound to this transaction
+	queries := New(db)
+	// Note: In a real implementation, you would need to modify the Queries
+	// struct to work with transactions. For now, we'll execute the function
+	// directly and handle rollback/commit
+
+	if err := txFunc(queries); err != nil {
+		if rbErr := tx.Rollback(); rbErr != nil {
+			return fmt.Errorf("transaction failed: %v, rollback failed: %v", err, rbErr)
+		}
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // GetDatabaseStatus returns comprehensive database status information
 func GetDatabaseStatus(ctx context.Context, db *sql.DB, monitor *DatabaseMonitor) map[string]interface{} {
 	status := make(map[string]interface{})
 
+	// Use a default logger if monitor is nil
+	var healthLogger logger.Logger
+	if monitor != nil {
+		healthLogger = monitor.logger
+	} else {
+		// Create a simple logger for health checks when monitor is not available
+		healthLogger = *logger.NewLogger()
+	}
+
 	// Connection health
-	if err := CheckConnectionHealth(ctx, db, monitor.logger); err != nil {
+	if err := CheckConnectionHealth(ctx, db, healthLogger); err != nil {
 		status["healthy"] = false
 		status["error"] = err.Error()
 	} else {

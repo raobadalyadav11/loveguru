@@ -25,3 +25,22 @@ func (h *Handler) UpdateProfile(ctx context.Context, req *user.UpdateProfileRequ
 func (h *Handler) GetSessions(ctx context.Context, req *user.GetSessionsRequest) (*user.GetSessionsResponse, error) {
 	return h.service.GetSessions(ctx, req)
 }
+
+// TODO: Implement these methods once protobuf types are generated
+/*
+func (h *Handler) CreateAnonymousProfile(ctx context.Context, req *user.CreateAnonymousProfileRequest) (*user.CreateAnonymousProfileResponse, error) {
+	return h.service.CreateAnonymousProfile(ctx, req)
+}
+
+func (h *Handler) ConvertAnonymousToFull(ctx context.Context, req *user.ConvertAnonymousToFullRequest) (*user.ConvertAnonymousToFullResponse, error) {
+	return h.service.ConvertAnonymousToFull(ctx, req)
+}
+
+func (h *Handler) ForgotPassword(ctx context.Context, req *user.ForgotPasswordRequest) (*user.ForgotPasswordResponse, error) {
+	return h.service.ForgotPassword(ctx, req)
+}
+
+func (h *Handler) ResetPassword(ctx context.Context, req *user.ResetPasswordRequest) (*user.ResetPasswordResponse, error) {
+	return h.service.ResetPassword(ctx, req)
+}
+*/

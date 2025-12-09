@@ -14,30 +14,78 @@ import (
 type Querier interface {
 	ApproveAdvisor(ctx context.Context, id uuid.UUID) error
 	BlockUser(ctx context.Context, id uuid.UUID) error
+	CountCompletedSessions(ctx context.Context, userID uuid.UUID) (int64, error)
+	CountPendingReports(ctx context.Context) (int64, error)
+	CountResolvedReports(ctx context.Context) (int64, error)
+	CountTotalReports(ctx context.Context) (int64, error)
+	CountUserSessions(ctx context.Context, userID uuid.UUID) (int64, error)
+	CreateAdminFlag(ctx context.Context, arg CreateAdminFlagParams) (AdminFlag, error)
 	CreateAdvisor(ctx context.Context, arg CreateAdvisorParams) (Advisor, error)
 	CreateCallSession(ctx context.Context, arg CreateCallSessionParams) (Session, error)
+	CreateFAQ(ctx context.Context, arg CreateFAQParams) (uuid.UUID, error)
+	CreateFeedbackPrompt(ctx context.Context, arg CreateFeedbackPromptParams) (uuid.UUID, error)
 	CreateRating(ctx context.Context, arg CreateRatingParams) (Rating, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
+	CreateSpecialization(ctx context.Context, arg CreateSpecializationParams) (uuid.UUID, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	DeleteFAQ(ctx context.Context, id uuid.UUID) error
+	DeleteSpecialization(ctx context.Context, id uuid.UUID) error
 	EndCall(ctx context.Context, id uuid.UUID) error
+	GetActiveSessions(ctx context.Context, userID uuid.UUID) ([]Session, error)
+	GetActiveSpecializationsByCategory(ctx context.Context, category string) ([]GetActiveSpecializationsByCategoryRow, error)
 	GetAdvisorByID(ctx context.Context, id uuid.UUID) (GetAdvisorByIDRow, error)
 	GetAdvisorByUserID(ctx context.Context, userID uuid.UUID) (Advisor, error)
 	GetAdvisorRatings(ctx context.Context, arg GetAdvisorRatingsParams) ([]Rating, error)
+	GetAdvisorRatingsWithReviewer(ctx context.Context, advisorID uuid.UUID) ([]GetAdvisorRatingsWithReviewerRow, error)
+	// FAQ Management
+	GetAllFAQs(ctx context.Context) ([]GetAllFAQsRow, error)
+	// Specializations Management
+	GetAllSpecializations(ctx context.Context) ([]GetAllSpecializationsRow, error)
+	GetAverageSessionDuration(ctx context.Context, userID uuid.UUID) (float64, error)
+	GetCallSessionByID(ctx context.Context, id uuid.UUID) (Session, error)
+	GetCallStatus(ctx context.Context, sessionID uuid.UUID) (GetCallStatusRow, error)
+	GetFAQsByCategory(ctx context.Context, category string) ([]GetFAQsByCategoryRow, error)
+	GetFeedbackPromptBySession(ctx context.Context, sessionID uuid.UUID) (CallFeedbackPrompt, error)
 	GetFlags(ctx context.Context, arg GetFlagsParams) ([]AdminFlag, error)
 	GetMessages(ctx context.Context, arg GetMessagesParams) ([]ChatMessage, error)
 	GetPendingAdvisors(ctx context.Context, arg GetPendingAdvisorsParams) ([]GetPendingAdvisorsRow, error)
+	GetPendingFeedbackPrompts(ctx context.Context) ([]GetPendingFeedbackPromptsRow, error)
+	GetRecentAdminFlags(ctx context.Context) ([]AdminFlag, error)
+	GetRecentEndedSessions(ctx context.Context) ([]Session, error)
+	GetRecommendedAdvisors(ctx context.Context, arg GetRecommendedAdvisorsParams) ([]GetRecommendedAdvisorsRow, error)
+	GetReportsByStatus(ctx context.Context, status sql.NullString) ([]AdminFlag, error)
 	GetSessionByID(ctx context.Context, id uuid.UUID) (Session, error)
+	GetSessionParticipantDeviceTokens(ctx context.Context, arg GetSessionParticipantDeviceTokensParams) ([]GetSessionParticipantDeviceTokensRow, error)
+	GetSessionParticipants(ctx context.Context, id uuid.UUID) ([]GetSessionParticipantsRow, error)
 	GetUserByEmail(ctx context.Context, email sql.NullString) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByPhone(ctx context.Context, phone sql.NullString) (User, error)
+	GetUserDeviceTokens(ctx context.Context, id uuid.UUID) (GetUserDeviceTokensRow, error)
+	GetUserReports(ctx context.Context, reportedUserID uuid.NullUUID) ([]AdminFlag, error)
+	GetUserSessionHistory(ctx context.Context, arg GetUserSessionHistoryParams) ([]GetUserSessionHistoryRow, error)
 	GetUserSessions(ctx context.Context, arg GetUserSessionsParams) ([]Session, error)
+	GetUserSpecializations(ctx context.Context, userID uuid.UUID) ([]GetUserSpecializationsRow, error)
 	InsertAIInteraction(ctx context.Context, arg InsertAIInteractionParams) (AiInteraction, error)
 	InsertCallLog(ctx context.Context, arg InsertCallLogParams) (CallLog, error)
 	InsertMessage(ctx context.Context, arg InsertMessageParams) (ChatMessage, error)
+	InsertMessageWithID(ctx context.Context, arg InsertMessageWithIDParams) (uuid.UUID, error)
 	ListAdvisors(ctx context.Context, arg ListAdvisorsParams) ([]ListAdvisorsRow, error)
+	SearchFAQs(ctx context.Context, dollar_1 sql.NullString) ([]SearchFAQsRow, error)
+	SubmitFeedback(ctx context.Context, arg SubmitFeedbackParams) error
+	UpdateAdminFlagStatus(ctx context.Context, arg UpdateAdminFlagStatusParams) error
 	UpdateAdvisor(ctx context.Context, arg UpdateAdvisorParams) (Advisor, error)
+	UpdateAdvisorStatus(ctx context.Context, arg UpdateAdvisorStatusParams) error
+	// Call Status and Feedback
+	UpdateCallStatus(ctx context.Context, arg UpdateCallStatusParams) error
+	UpdateFAQ(ctx context.Context, arg UpdateFAQParams) error
+	UpdateMessageReadStatus(ctx context.Context, id uuid.UUID) error
 	UpdateSessionStatus(ctx context.Context, arg UpdateSessionStatusParams) error
+	UpdateSpecialization(ctx context.Context, arg UpdateSpecializationParams) error
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
+	UpdateUserAPNSToken(ctx context.Context, arg UpdateUserAPNSTokenParams) error
+	UpdateUserCredentials(ctx context.Context, arg UpdateUserCredentialsParams) (UpdateUserCredentialsRow, error)
+	UpdateUserFCMToken(ctx context.Context, arg UpdateUserFCMTokenParams) error
+	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
 }
 
 var _ Querier = (*Queries)(nil)

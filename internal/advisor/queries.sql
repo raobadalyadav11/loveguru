@@ -19,4 +19,7 @@ SELECT a.*, u.*, 0 as average_rating
 FROM advisors a
 JOIN users u ON a.user_id = u.id
 WHERE a.status = 'ONLINE'
-LIMIT @limit_rows OFFSET @offset_rows;
+LIMIT $2 OFFSET $1;
+
+-- name: UpdateAdvisorStatus :exec
+UPDATE advisors SET status = $2, updated_at = NOW() WHERE id = $1;
