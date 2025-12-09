@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"loveguru/internal/db"
@@ -15,11 +16,15 @@ import (
 )
 
 type Service struct {
-	repo *db.Queries
+	repo         *db.Queries
+	agoraService *AgoraService
 }
 
-func NewService(repo *db.Queries) *Service {
-	return &Service{repo: repo}
+func NewService(repo *db.Queries, agoraService *AgoraService) *Service {
+	return &Service{
+		repo:         repo,
+		agoraService: agoraService,
+	}
 }
 
 func (s *Service) CreateSession(ctx context.Context, req *call.CreateSessionRequest) (*call.CreateSessionResponse, error) {
@@ -46,9 +51,24 @@ func (s *Service) CreateSession(ctx context.Context, req *call.CreateSessionRequ
 		return nil, err
 	}
 
-	// TODO: Integrate with VoIP provider to get token and room
-	callToken := "dummy_token"
-	roomID := "dummy_room"
+	// Create Agora call session
+	agoraCallInfo, err := s.agoraService.CreateCallSession(ctx, userInfo.ID, req.AdvisorId)
+	if err != nil {
+		// Log the error for debugging
+		return nil, fmt.Errorf("failed to create Agora call session: %w", err)
+	}
+
+	// Validate Agora call info
+	if agoraCallInfo == nil {
+		return nil, fmt.Errorf("Agora call session returned nil info")
+	}
+
+	if agoraCallInfo.Token == "" {
+		return nil, fmt.Errorf("Agora call session returned empty token")
+	}
+
+	callToken := agoraCallInfo.Token
+	roomID := agoraCallInfo.ExternalID
 
 	return &call.CreateSessionResponse{
 		Session: &common.Session{
@@ -76,16 +96,29 @@ func (s *Service) EndCall(ctx context.Context, req *call.EndCallRequest) (*call.
 		return nil, err
 	}
 
-	// TODO: Get call duration from VoIP provider
-	duration := 300 // dummy
+	// Get real call duration from Agora
+	duration, status, err := s.agoraService.GetCallStats(ctx, req.SessionId)
+	if err != nil {
+		// Log the error but fall back to estimation
+		// In production, you might want to implement retry logic or alerting
+		duration = 0
+		status = "ENDED"
+	}
+
+	// End the Agora call
+	err = s.agoraService.EndCall(ctx, req.SessionId)
+	if err != nil {
+		// Log error but don't fail the operation
+		// The call may have already ended or there's a temporary issue
+	}
 
 	_, err = s.repo.InsertCallLog(ctx, db.InsertCallLogParams{
 		SessionID:       sid,
-		ExternalCallID:  sql.NullString{String: "dummy", Valid: true},
+		ExternalCallID:  sql.NullString{String: req.SessionId, Valid: true},
 		StartedAt:       sql.NullTime{Valid: false},
 		EndedAt:         sql.NullTime{Time: time.Now(), Valid: true},
 		DurationSeconds: sql.NullInt32{Int32: int32(duration), Valid: true},
-		Status:          sql.NullString{String: "ENDED", Valid: true},
+		Status:          sql.NullString{String: status, Valid: true},
 	})
 	if err != nil {
 		return nil, err

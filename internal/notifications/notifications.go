@@ -6,6 +6,8 @@ import (
 	"net/smtp"
 	"os"
 	"strings"
+
+	"loveguru/internal/config"
 )
 
 type NotificationService struct {
@@ -13,6 +15,8 @@ type NotificationService struct {
 	emailPass string
 	emailHost string
 	emailPort string
+	fcm       *FCMService
+	apns      *APNSService
 }
 
 type EmailTemplate struct {
@@ -22,12 +26,52 @@ type EmailTemplate struct {
 }
 
 func NewNotificationService() *NotificationService {
-	return &NotificationService{
-		emailFrom: os.Getenv("EMAIL_FROM"),
-		emailPass: os.Getenv("EMAIL_PASS"),
-		emailHost: os.Getenv("EMAIL_HOST"),
-		emailPort: os.Getenv("EMAIL_PORT"),
+	return NewNotificationServiceWithConfig(&config.Config{
+		Email: config.EmailConfig{
+			From:     os.Getenv("EMAIL_FROM"),
+			Password: os.Getenv("EMAIL_PASS"),
+			Host:     os.Getenv("EMAIL_HOST"),
+			Port:     os.Getenv("EMAIL_PORT"),
+		},
+		FCM: config.FCMConfig{
+			ServerKey: os.Getenv("FCM_SERVER_KEY"),
+			ProjectID: os.Getenv("FCM_PROJECT_ID"),
+		},
+		APNS: config.APNSConfig{
+			TeamID:      os.Getenv("APNS_TEAM_ID"),
+			KeyID:       os.Getenv("APNS_KEY_ID"),
+			PrivateKey:  os.Getenv("APNS_PRIVATE_KEY"),
+			BundleID:    os.Getenv("APNS_BUNDLE_ID"),
+			Environment: os.Getenv("APNS_ENVIRONMENT"),
+		},
+	})
+}
+
+func NewNotificationServiceWithConfig(cfg *config.Config) *NotificationService {
+	notificationService := &NotificationService{
+		emailFrom: cfg.Email.From,
+		emailPass: cfg.Email.Password,
+		emailHost: cfg.Email.Host,
+		emailPort: cfg.Email.Port,
 	}
+
+	// Initialize FCM service if configured
+	if cfg.FCM.ServerKey != "" && cfg.FCM.ProjectID != "" {
+		notificationService.fcm = NewFCMService(&cfg.FCM)
+	}
+
+	// Initialize APNS service if configured
+	if cfg.APNS.PrivateKey != "" && cfg.APNS.TeamID != "" && cfg.APNS.KeyID != "" && cfg.APNS.BundleID != "" {
+		apnsService, err := NewAPNSService(&cfg.APNS)
+		if err != nil {
+			// Log error but don't fail - APNS is optional
+			fmt.Printf("Warning: Failed to initialize APNS service: %v\n", err)
+		} else {
+			notificationService.apns = apnsService
+		}
+	}
+
+	return notificationService
 }
 
 func (n *NotificationService) SendEmail(ctx context.Context, to, subject, body string) error {
@@ -167,4 +211,146 @@ func (n *NotificationService) ValidateEmail(email string) bool {
 func (n *NotificationService) ValidatePhone(phone string) bool {
 	// Basic phone validation - in production, use a more robust library
 	return len(phone) >= 10 && len(phone) <= 15
+}
+
+// Push Notification Methods
+
+// SendPushNotification sends a push notification using FCM and APNS
+func (n *NotificationService) SendPushNotification(deviceTokens []string, platform, title, body string, data map[string]interface{}) error {
+	if len(deviceTokens) == 0 {
+		return fmt.Errorf("no device tokens provided")
+	}
+
+	var errors []string
+
+	// Send FCM notifications
+	if n.fcm != nil {
+		for _, token := range deviceTokens {
+			if token != "" {
+				err := n.fcm.SendPushNotification(token, title, body, data)
+				if err != nil {
+					errors = append(errors, fmt.Sprintf("FCM token %s: %v", token, err))
+				}
+			}
+		}
+	}
+
+	// Send APNS notifications
+	if n.apns != nil {
+		for _, token := range deviceTokens {
+			if token != "" {
+				err := n.apns.SendPushNotification(token, title, body, data)
+				if err != nil {
+					errors = append(errors, fmt.Sprintf("APNS token %s: %v", token, err))
+				}
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("push notification errors: %s", strings.Join(errors, "; "))
+	}
+
+	return nil
+}
+
+// SendChatNotification sends a push notification for new chat messages
+func (n *NotificationService) SendChatNotification(deviceTokens []string, senderName, message, sessionID string) error {
+	title := "New Message"
+	body := fmt.Sprintf("%s: %s", senderName, message)
+
+	data := map[string]interface{}{
+		"type":       "chat",
+		"session_id": sessionID,
+		"sender":     senderName,
+		"message":    message,
+	}
+
+	return n.SendPushNotification(deviceTokens, "all", title, body, data)
+}
+
+// SendCallNotification sends a push notification for call requests
+func (n *NotificationService) SendCallNotification(deviceTokens []string, callerName, callType, sessionID string) error {
+	title := "Incoming Call"
+	body := fmt.Sprintf("%s is calling you for a %s session", callerName, callType)
+
+	data := map[string]interface{}{
+		"type":       "call",
+		"session_id": sessionID,
+		"caller":     callerName,
+		"call_type":  callType,
+	}
+
+	return n.SendPushNotification(deviceTokens, "all", title, body, data)
+}
+
+// SendSessionUpdateNotification sends a push notification for session status updates
+func (n *NotificationService) SendSessionUpdateNotification(deviceTokens []string, advisorName, sessionID, action string) error {
+	var title, body string
+
+	switch action {
+	case "started":
+		title = "Session Started"
+		body = fmt.Sprintf("Your session with %s has begun", advisorName)
+	case "ended":
+		title = "Session Ended"
+		body = fmt.Sprintf("Your session with %s has ended. Thank you!", advisorName)
+	case "accepted":
+		title = "Session Accepted"
+		body = fmt.Sprintf("%s has accepted your session request", advisorName)
+	case "rejected":
+		title = "Session Rejected"
+		body = fmt.Sprintf("%s is currently unavailable for a session", advisorName)
+	default:
+		title = "Session Update"
+		body = fmt.Sprintf("Update regarding your session with %s", advisorName)
+	}
+
+	data := map[string]interface{}{
+		"type":       "session",
+		"session_id": sessionID,
+		"advisor":    advisorName,
+		"action":     action,
+	}
+
+	return n.SendPushNotification(deviceTokens, "all", title, body, data)
+}
+
+// ValidateDeviceToken validates if a device token looks valid
+func (n *NotificationService) ValidateDeviceToken(token string) bool {
+	if token == "" {
+		return false
+	}
+
+	// Basic validation - FCM tokens are typically 152+ characters
+	// APNS tokens are typically 64 characters (hex)
+	if len(token) < 32 || len(token) > 200 {
+		return false
+	}
+
+	// Check if token contains only valid characters
+	for _, char := range token {
+		if !((char >= 'a' && char <= 'f') || (char >= 'A' && char <= 'F') || (char >= '0' && char <= '9')) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// GetPushNotificationStatus returns status of push notification services
+func (n *NotificationService) GetPushNotificationStatus() map[string]bool {
+	status := make(map[string]bool)
+
+	status["fcm_enabled"] = n.fcm != nil
+	if n.fcm != nil {
+		status["fcm_configured"] = n.fcm.serverKey != "" && n.fcm.projectID != ""
+	}
+
+	status["apns_enabled"] = n.apns != nil
+	if n.apns != nil {
+		status["apns_configured"] = n.apns.teamID != "" && n.apns.keyID != "" && n.apns.bundleID != ""
+	}
+
+	return status
 }

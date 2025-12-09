@@ -30,15 +30,23 @@ type OpenAIResponse struct {
 }
 
 type OpenAIClient struct {
-	apiKey  string
-	baseURL string
-	client  *http.Client
+	apiKey    string
+	baseURL   string
+	model     string
+	maxTokens int
+	client    *http.Client
 }
 
 func NewOpenAIClient(apiKey, baseURL string) *OpenAIClient {
+	return NewOpenAIClientWithConfig(apiKey, baseURL, "gpt-3.5-turbo", 500)
+}
+
+func NewOpenAIClientWithConfig(apiKey, baseURL, model string, maxTokens int) *OpenAIClient {
 	return &OpenAIClient{
-		apiKey:  apiKey,
-		baseURL: baseURL,
+		apiKey:    apiKey,
+		baseURL:   baseURL,
+		model:     model,
+		maxTokens: maxTokens,
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -68,9 +76,9 @@ func (c *OpenAIClient) Chat(ctx context.Context, prompt string, context []string
 	})
 
 	req := OpenAIRequest{
-		Model:       "gpt-3.5-turbo",
+		Model:       c.model,
 		Messages:    messages,
-		MaxTokens:   500,
+		MaxTokens:   c.maxTokens,
 		Temperature: 0.7,
 	}
 

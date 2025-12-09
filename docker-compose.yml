@@ -16,19 +16,35 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   app:
     build: .
     ports:
       - "50051:50051"
     environment:
       - DATABASE_URL=postgresql://postgres:password@postgres:5432/loveguru?sslmode=disable
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - REDIS_DB=0
     depends_on:
       postgres:
         condition: service_healthy
-    volumes:
-      - .:/app
-    working_dir: /app
-    command: go run cmd/server/main.go
+      redis:
+        condition: service_healthy
+    command: ["./main"]
 
 volumes:
   postgres_data:
+  redis_data:

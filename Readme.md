@@ -1,526 +1,193 @@
-App: Love advice / love therapy platform
-Backend Language: Go (Golang)
-Architecture Style: Modular monolith (Phase 1) → can evolve to microservices later
-Main responsibilities:
+✅ Complete Functional Name List (All App Functionalities)
+1. Authentication & User Management
+User Registration
 
-Auth & user management (users + advisers)
+User Login
 
-Adviser marketplace & rating system
+Logout
 
-Real‑time chat
+Token Refresh
 
-Call session management (via external VoIP provider)
+Forgot Password / OTP
 
-AI assistant integration
+Anonymous Profile Setup
 
-Admin panel APIs
+User Profile Update
 
-2. Tech Stack (Backend)
-Language: Go 1.22+
+2. Advisor / Love Guru Management
+Adviser Registration
 
-Framework:
+Adviser Profile Creation
 
-HTTP router: Gin (or Fiber, pick one and stick to it)
+Adviser KYC Verification
 
-DB:
+Adviser Status Update (Online/Offline/Busy)
 
-Primary: PostgreSQL (users, advisers, ratings, sessions, calls)
+Adviser Profile Editing
 
-Secondary: Redis (caching, WebSocket presence, rate limiting)
+Adviser Specialization & Language Setup
 
-Realtime:
+Adviser Experience Setup
 
-WebSockets (self-hosted) or 3rd party (Pusher/Ably) – here we assume self‑hosted WS in Go
+Adviser Availability Management
 
-Message Queue (optional later): NATS / RabbitMQ (for notifications, async jobs)
+3. Discovery & Matching
+Adviser List Fetch
 
-AI Integration: HTTP client to LLM API (OpenAI etc.)
+Adviser Profile View
 
-Config: viper or env variables
+Adviser Search
 
-Migrations: golang-migrate
+Adviser Filters (Rating, Language, Specialization, Experience)
 
-Auth: JWT with refresh tokens
+Adviser Sorting (Top Rated / Trending / Experience)
 
-Deployment Target: Docker + Kubernetes or simple Docker + ECS/GCE
+AI‑Based Adviser Recommendation
 
-3. High-Level Architecture (Backend)
-3.1 Logical Components
-API Gateway / HTTP Server
+4. Chat System
+Start Chat Session
 
-Receives all requests
+End Chat Session
 
-Authentication / authorization middleware
+WebSocket Connection
 
-Routes to modules
+Send Text Message
 
-Modules / Domains
+Receive Text Message
 
-Auth Module
+Typing Indicator
 
-User Module
+Message Read Receipt
 
-Advisor Module
+Chat History Fetch
 
-Chat Module
+AI Chat Session (User ↔ AI)
 
-Call Module
+Push Notification Trigger for New Message
 
-AI Assistant Module
+5. Voice Call System
+Start Call Session
 
-Rating & Review Module
+End Call Session
 
-Admin Module
+Generate Call Token (VoIP)
 
-Infra Layer
+Track Call Duration
 
-DB access (Postgres)
+Store Call Logs
 
-Cache (Redis)
+Call Status Update (Ringing / Connected / Ended)
 
-External integrations:
+Post‑Call Feedback Prompt
 
-VoIP provider (Twilio/Agora/etc.)
+6. AI Assistant (Love Bot)
+Handle User Message
 
-AI provider (OpenAI, etc.)
+Generate AI Advice
 
-Notification service (FCM, APNS)
+Store AI Interaction History
 
-4. Go Project Structure (Example)
-love-advice-backend/
-├── cmd/
-│   └── api/
-│       └── main.go
-├── internal/
-│   ├── config/
-│   ├── http/
-│   │   ├── middleware/
-│   │   └── router.go
-│   ├── auth/
-│   │   ├── handler.go
-│   │   ├── service.go
-│   │   └── repository.go
-│   ├── user/
-│   ├── advisor/
-│   ├── chat/
-│   │   ├── ws_hub.go
-│   │   ├── handler.go
-│   │   └── service.go
-│   ├── call/
-│   ├── rating/
-│   ├── ai/
-│   ├── admin/
-│   ├── models/
-│   ├── db/
-│   │   ├── postgres.go
-│   │   └── migrations/
-│   ├── cache/
-│   ├── utils/
-│   └── logger/
-├── pkg/
-│   └── (optional shared libs)
-├── go.mod
-└── go.sum
-5. Core Entities / Data Model
-5.1 Tables (Main)
-users
+Analyze Conversation Context
 
-id (uuid, pk)
+Recommend Adviser
 
-email (nullable if phone only)
+Answer FAQs
 
-phone (nullable if email only)
+7. Ratings & Reviews
+Submit Rating
 
-password_hash
+Submit Review
 
-display_name
+View Advisor Ratings
 
-role (USER / ADVISOR / ADMIN)
+View Advisor Reviews
 
-gender (optional)
+Compute Average Rating
 
-dob (optional)
+8. Session Management
+Create Session (Chat / Call / AI)
 
-created_at, updated_at
+Update Session Status
 
-is_active
+End Session
 
-advisors
+List All User Sessions
 
-id (uuid, pk)
+Adviser Session History
 
-user_id (fk -> users)
+9. Admin Panel Functionalities
+Admin Login
 
-bio
+Adviser Approval
 
-experience_years
+Adviser Rejection
 
-languages (array/jsonb)
+View All Users
 
-specializations (jsonb: breakup, marriage, dating, etc.)
+View All Advisers
 
-is_verified (KYC done)
+View Reports / Flags
 
-hourly_rate or per_min_rate (for future paid model)
+Suspend User
 
-status (ONLINE, OFFLINE, BUSY)
+Suspend Adviser
 
-created_at, updated_at
+Manage Specializations
 
-sessions (chat or call sessions)
+Dashboard View (Analytics)
 
-id (uuid, pk)
+10. Reporting & Safety
+Report User
 
-user_id
+Report Adviser
 
-advisor_id
+Block User
 
-type (CHAT, CALL, AI_CHAT)
+Admin Resolution Flow
 
-started_at
+Abuse Monitoring
 
-ended_at
+11. Notifications
+New Message Notification
 
-status (ONGOING, ENDED, CANCELLED)
+New Call Request Notification
 
-chat_messages
+Adviser Online Notification
 
-id (uuid, pk)
+Session End Notification
 
-session_id (fk -> sessions)
+Admin Alerts
 
-sender_type (USER, ADVISOR, AI)
+12. Infrastructure & System-Level Features
+Database Connection Manager
 
-sender_id
+Redis Cache Manager
 
-content (text)
+Config Loader
 
-created_at
+Error Handler
 
-is_read
+Logger
 
-call_logs
+Rate Limiter
 
-id (uuid, pk)
+API Gateway Routing
 
-session_id (fk -> sessions)
+WebSocket Hub Manager
 
-external_call_id (id from VoIP provider)
+13. Future Features (Defined but Not Required Now)
+Video Call Session
 
-started_at
+Subscription Plan Management
 
-ended_at
+Payment Gateway Integration
 
-duration_seconds
+Premium Adviser Selection
 
-status
+Session Credits / Coins
 
-ratings
+Mood Tracking
 
-id (uuid, pk)
+Relationship Journal
 
-session_id
-
-user_id
-
-advisor_id
-
-rating (1–5)
-
-review_text
-
-created_at
-
-ai_interactions
-
-id (uuid, pk)
-
-user_id
-
-prompt
-
-response
-
-created_at
-
-admin_flags
-
-id
-
-reported_by
-
-reported_user_id or advisor_id
-
-reason
-
-session_id (optional)
-
-created_at
-
-status
-
-(For now I’m skipping payments tables since you said initially free.)
-
-6. API Design (Key Endpoints)
-I’ll keep it REST-style; actual paths can be adjusted.
-
-6.1 Auth
-POST /api/v1/auth/register
-
-Input: email/phone, password, display_name, role
-
-Output: user info + access_token + refresh_token
-
-POST /api/v1/auth/login
-
-Input: email+password or phone+otp
-
-Output: tokens
-
-POST /api/v1/auth/refresh
-
-POST /api/v1/auth/logout
-
-6.2 User
-GET /api/v1/users/me
-
-PATCH /api/v1/users/me
-
-GET /api/v1/users/me/sessions
-
-6.3 Advisor
-GET /api/v1/advisors
-
-Query params: rating_min, language, specialization, sort=top_rated|price|experience
-
-GET /api/v1/advisors/{id}
-
-POST /api/v1/advisors/apply (for advisers to create profile)
-
-PATCH /api/v1/advisors/me (update bio, specialization, status)
-
-6.4 Chat
-POST /api/v1/sessions/chat
-
-Create chat session (user ↔ advisor OR user ↔ AI)
-
-GET /api/v1/sessions/{id}/messages
-
-WebSocket endpoint:
-
-GET /ws/chat?session_id=...&token=...
-
-WebSocket message format example (JSON):
-
-{
-  "type": "MESSAGE",
-  "session_id": "uuid",
-  "sender_type": "USER",
-  "content": "Hey, I need advice..."
-}
-Server broadcasts messages to the other participant (adviser or AI service).
-
-6.5 Call
-POST /api/v1/sessions/call
-
-Create call session for user ↔ adviser
-
-Backend calls VoIP API to create/join room
-
-POST /api/v1/calls/{session_id}/end
-
-GET /api/v1/calls/{session_id}
-
-6.6 Ratings
-POST /api/v1/sessions/{id}/rating
-
-GET /api/v1/advisors/{id}/ratings
-
-6.7 AI Assistant
-POST /api/v1/ai/chat
-
-Input: user message + context (relationship type, previous conversation id)
-
-Output: AI message
-
-Internally also used by WebSocket chat when sender_type == AI.
-
-6.8 Admin
-GET /api/v1/admin/advisors/pending
-
-POST /api/v1/admin/advisors/{id}/approve
-
-GET /api/v1/admin/flags
-
-POST /api/v1/admin/users/{id}/block
-
-7. Key Flows (How Things Work)
-7.1 User Signup & Onboarding
-App → POST /auth/register
-
-Backend:
-
-Validate data
-
-Create row in users
-
-If role = ADVISOR → create empty row in advisors (status: PENDING)
-
-Return JWT tokens
-
-App stores tokens securely and moves to home screen.
-
-7.2 Adviser Discovery
-App → GET /advisors?rating_min=4&language=en&sort=top_rated
-
-Backend:
-
-Query advisors + JOIN avg rating from ratings
-
-Apply filters, sort
-
-Return paginated list
-
-7.3 Start Chat with Adviser
-App → POST /sessions/chat with advisor_id
-
-Backend:
-
-Create session row with type=CHAT, status=ONGOING
-
-Return session_id
-
-App connects to ws/chat?session_id=...
-
-Chat messages flow over WebSocket and are persisted in chat_messages.
-
-7.4 AI Assistant Flow
-User sends message → app calls:
-
-Either WebSocket to chat service with sender_type=USER & session_type=AI
-
-Or simple POST /ai/chat
-
-Backend:
-
-Stores message
-
-Calls external AI (OpenAI) with sanitized prompt
-
-Returns response & stores as sender_type=AI
-
-7.5 Voice Call Flow (High Level)
-App → POST /sessions/call with advisor_id
-
-Backend:
-
-Check adviser status = ONLINE
-
-Create session row (type=CALL)
-
-Call VoIP API → create room/token
-
-Return call join token & room ID to both clients
-
-Clients connect to VoIP SDK directly (voice goes via provider).
-
-After call end:
-
-Provider notifies backend via webhook OR client hits POST /calls/{session_id}/end
-
-Backend updates call_logs, sessions table.
-
-8. Cross-Cutting Concerns
-8.1 Authentication & Authorization
-Use JWT access token (short-lived) + refresh token (longer).
-
-Middleware in Go to:
-
-Verify token
-
-Attach user_id & role to context
-
-Restrict endpoints:
-
-/admin/* → role == ADMIN
-
-Adviser endpoints → role == ADVISOR
-
-8.2 Validation
-Use validation library (go-playground/validator) for request structs.
-
-Standard error format:
-
-{
-  "error": "validation_error",
-  "details": { "field": "email", "message": "invalid email" }
-}
-8.3 Logging
-Structured logging using zerolog or logrus.
-
-Log:
-
-Request path, user_id, latency
-
-Errors (DB, external API, etc.)
-
-8.4 Config Management
-Use env vars: DB URL, Redis URL, AI API key, VoIP keys.
-
-Provide config.yml for local dev.
-
-Load via viper.
-
-8.5 Security
-All endpoints over HTTPS.
-
-Hash passwords using bcrypt.
-
-Rate limiting on:
-
-Auth endpoints
-
-AI endpoints
-
-Sanitize user input before passing to AI.
-
-9. Future: Subscription & Paid Features (Hook Points)
-Even though v1 is free, design with these in mind:
-
-Add plans table (FREE, PRO).
-
-Add user_subscriptions table.
-
-Middleware that checks if user has subscription before:
-
-Accessing top advisers
-
-Starting extra sessions
-
-Add advisor_rates table for per‑minute/per‑session pricing.
-
-Payment integration module (Stripe/Razorpay).
-
-10. What Devs Can Start With Right Now
-Set up Go project structure (as above).
-
-Implement:
-
-Config loader
-
-Postgres + Redis connection
-
-Basic users, advisors models
-
-Auth endpoints with JWT
-
-Add adviser listing + filters.
-
-Implement WebSocket chat hub for:
-
-User ↔ Adviser messaging
-
-User ↔ AI messaging (first just echo, then plug into real AI)
-
-Add session creation & simple call logging (even before integrating VoIP).
-
+Compatibility Reports

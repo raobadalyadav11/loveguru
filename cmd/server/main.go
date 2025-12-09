@@ -69,8 +69,29 @@ func main() {
 		defer cacheService.Close()
 	}
 
-	// Initialize notification service
-	_ = notifications.NewNotificationService()
+	// Initialize notification service with enhanced push notification support
+	notificationService := notifications.NewNotificationServiceWithConfig(cfg)
+
+	// Check push notification service status
+	notificationStatus := notificationService.GetPushNotificationStatus()
+	if !notificationStatus["fcm_enabled"] && !notificationStatus["apns_enabled"] {
+		log.Println("Warning: No push notification services configured. Push notifications will not work.")
+	} else {
+		if notificationStatus["fcm_enabled"] {
+			if notificationStatus["fcm_configured"] {
+				log.Println("FCM push notifications enabled")
+			} else {
+				log.Println("Warning: FCM service enabled but not configured properly")
+			}
+		}
+		if notificationStatus["apns_enabled"] {
+			if notificationStatus["apns_configured"] {
+				log.Println("APNS push notifications enabled")
+			} else {
+				log.Println("Warning: APNS service enabled but not configured properly")
+			}
+		}
+	}
 
 	// Create services
 	authService := auth.NewService(auth.NewRepository(queries), cfg.JWT.Secret, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL)
@@ -82,11 +103,28 @@ func main() {
 	go chatHub.Run()
 
 	chatService := chat.NewService(queries)
-	callService := call.NewService(queries)
+
+	// Initialize Agora service
+	agoraService := call.NewAgoraService(&cfg.Agora)
+
+	// Validate Agora configuration
+	if err := agoraService.ValidateConfig(); err != nil {
+		log.Printf("Warning: Agora configuration invalid: %v", err)
+		log.Println("VoIP functionality will not work properly without valid Agora credentials")
+	}
+
+	callService := call.NewService(queries, agoraService)
+
 	ratingService := rating.NewService(queries)
 
 	// Initialize AI service with real OpenAI integration
-	aiService := ai.NewService(queries, os.Getenv("OPENAI_API_KEY"), "https://api.openai.com")
+	aiService := ai.NewServiceWithConfig(queries, cfg.OpenAI.APIKey, cfg.OpenAI.BaseURL, cfg.OpenAI.Model, cfg.OpenAI.MaxTokens)
+
+	// Validate OpenAI configuration
+	if cfg.OpenAI.APIKey == "" {
+		log.Println("Warning: OpenAI API key not configured. AI chat functionality will not work.")
+	}
+
 	adminService := admin.NewService(queries)
 
 	// Create handlers

@@ -19,5 +19,5 @@ func (h *Handler) Chat(ctx context.Context, req *ai.ChatRequest) (*ai.ChatRespon
 }
 
 func (h *Handler) ChatStream(stream ai.AIService_ChatStreamServer) error {
-	return h.service.ChatStream(nil, stream)
+	return h.service.ChatStream(stream)
 }

@@ -3,6 +3,8 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"log"
+	"time"
 
 	_ "github.com/lib/pq"
 
@@ -15,11 +17,28 @@ func NewDB(cfg *config.DatabaseConfig) (*sql.DB, error) {
 
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open database connection: %w", err)
 	}
 
+	// Configure connection pool settings
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(25)
+	db.SetConnMaxLifetime(5 * time.Minute)
+
+	// Test the connection
 	if err := db.Ping(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
+
+	// Log successful connection
+	log.Printf("Successfully connected to database: %s:%d/%s", cfg.Host, cfg.Port, cfg.DBName)
+
+	// Test database version
+	var version string
+	if err := db.QueryRow("SELECT version()").Scan(&version); err != nil {
+		log.Printf("Warning: Failed to get database version: %v", err)
+	} else {
+		log.Printf("Database version: %s", version)
 	}
 
 	return db, nil

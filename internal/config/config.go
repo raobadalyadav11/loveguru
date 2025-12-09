@@ -14,6 +14,11 @@ type Config struct {
 	Redis    RedisConfig    `mapstructure:"redis"`
 	JWT      JWTConfig      `mapstructure:"jwt"`
 	Server   ServerConfig   `mapstructure:"server"`
+	Agora    AgoraConfig    `mapstructure:"agora"`
+	OpenAI   OpenAIConfig   `mapstructure:"openai"`
+	FCM      FCMConfig      `mapstructure:"fcm"`
+	APNS     APNSConfig     `mapstructure:"apns"`
+	Email    EmailConfig    `mapstructure:"email"`
 }
 
 type DatabaseConfig struct {
@@ -42,6 +47,39 @@ type ServerConfig struct {
 	Port string `mapstructure:"port"`
 }
 
+type AgoraConfig struct {
+	AppID    string `mapstructure:"app_id"`
+	AppCert  string `mapstructure:"app_cert"`
+	TokenTTL int    `mapstructure:"token_ttl"` // Token expiration time in seconds
+}
+
+type OpenAIConfig struct {
+	APIKey    string `mapstructure:"api_key"`
+	BaseURL   string `mapstructure:"base_url"`
+	Model     string `mapstructure:"model"`
+	MaxTokens int    `mapstructure:"max_tokens"`
+}
+
+type FCMConfig struct {
+	ServerKey string `mapstructure:"server_key"`
+	ProjectID string `mapstructure:"project_id"`
+}
+
+type APNSConfig struct {
+	TeamID      string `mapstructure:"team_id"`
+	KeyID       string `mapstructure:"key_id"`
+	PrivateKey  string `mapstructure:"private_key"`
+	BundleID    string `mapstructure:"bundle_id"`
+	Environment string `mapstructure:"environment"` // "development" or "production"
+}
+
+type EmailConfig struct {
+	From     string `mapstructure:"from"`
+	Password string `mapstructure:"password"`
+	Host     string `mapstructure:"host"`
+	Port     string `mapstructure:"port"`
+}
+
 func Load() (*Config, error) {
 	// Load .env file if it exists
 	godotenv.Load()
@@ -65,6 +103,24 @@ func Load() (*Config, error) {
 	viper.SetDefault("jwt.access_ttl", 15)
 	viper.SetDefault("jwt.refresh_ttl", 10080)
 	viper.SetDefault("server.port", "50051")
+	viper.SetDefault("agora.app_id", "")
+	viper.SetDefault("agora.app_cert", "")
+	viper.SetDefault("agora.token_ttl", 3600) // 1 hour
+	viper.SetDefault("openai.api_key", "")
+	viper.SetDefault("openai.base_url", "https://api.openai.com")
+	viper.SetDefault("openai.model", "gpt-3.5-turbo")
+	viper.SetDefault("openai.max_tokens", 500)
+	viper.SetDefault("fcm.server_key", "")
+	viper.SetDefault("fcm.project_id", "")
+	viper.SetDefault("apns.team_id", "")
+	viper.SetDefault("apns.key_id", "")
+	viper.SetDefault("apns.private_key", "")
+	viper.SetDefault("apns.bundle_id", "")
+	viper.SetDefault("apns.environment", "development")
+	viper.SetDefault("email.from", "")
+	viper.SetDefault("email.password", "")
+	viper.SetDefault("email.host", "smtp.gmail.com")
+	viper.SetDefault("email.port", "587")
 
 	if err := viper.ReadInConfig(); err != nil {
 		// Use defaults if config file not found
